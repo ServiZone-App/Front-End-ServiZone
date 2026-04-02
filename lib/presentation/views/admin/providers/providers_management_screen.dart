@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
+import 'package:servizone_app/core/locator.dart';
 import 'package:servizone_app/data/models/provider_model.dart';
+import 'package:servizone_app/data/providers/auth_service.dart';
+import 'package:servizone_app/data/providers/admin_audit_service.dart';
+import 'package:servizone_app/presentation/views/admin/shared/admin_shared_widgets.dart';
 
 class ProvidersManagementScreen extends StatefulWidget {
   const ProvidersManagementScreen({super.key});
@@ -10,584 +13,402 @@ class ProvidersManagementScreen extends StatefulWidget {
   State<ProvidersManagementScreen> createState() => _ProvidersManagementScreenState();
 }
 
-class _ProvidersManagementScreenState extends State<ProvidersManagementScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _fadeController;
-  late Animation<double> _fadeAnimation;
+class _ProvidersManagementScreenState extends State<ProvidersManagementScreen> {
+  final List<ProviderModel> _providers = [];
+  final List<ProviderModel> _filteredProviders = [];
+  final TextEditingController _searchController = TextEditingController();
+  final AdminAuditService _auditService = locator<AdminAuditService>();
+  final AuthService _authService = locator<AuthService>();
 
-  List<ProviderModel> providers = [
-    ProviderModel(
-      id: '001',
-      name: 'Carlos Mendoza',
-      email: 'carlos.mendoza@email.com',
-      phone: '+57 300 123 4567',
-      category: 'Plomería',
-      address: 'Calle 45 #12-34, Medellín',
-      rating: 4.8,
-      completedServices: 156,
-      isActive: true,
-      isVerified: true,
-      joinDate: DateTime.now().subtract(const Duration(days: 180)),
-    ),
-    ProviderModel(
-      id: '002',
-      name: 'Ana García López',
-      email: 'ana.garcia@email.com',
-      phone: '+57 301 987 6543',
-      category: 'Limpieza',
-      address: 'Carrera 70 #23-45, Bogotá',
-      rating: 4.9,
-      completedServices: 203,
-      isActive: true,
-      isVerified: true,
-      joinDate: DateTime.now().subtract(const Duration(days: 120)),
-    ),
-    ProviderModel(
-      id: '003',
-      name: 'Roberto Silva',
-      email: 'roberto.silva@email.com',
-      phone: '+57 302 456 7890',
-      category: 'Electricidad',
-      address: 'Av. 80 #15-67, Cali',
-      rating: 4.6,
-      completedServices: 89,
-      isActive: false,
-      isVerified: true,
-      joinDate: DateTime.now().subtract(const Duration(days: 90)),
-    ),
-    ProviderModel(
-      id: '004',
-      name: 'María Fernández',
-      email: 'maria.fernandez@email.com',
-      phone: '+57 303 789 0123',
-      category: 'Jardinería',
-      address: 'Clle 123 #45-67, Barranquilla',
-      rating: 4.7,
-      completedServices: 134,
-      isActive: true,
-      isVerified: false,
-      joinDate: DateTime.now().subtract(const Duration(days: 45)),
-    ),
-    ProviderModel(
-      id: '005',
-      name: 'Luis Rodríguez',
-      email: 'luis.rodriguez@email.com',
-      phone: '+57 304 234 5678',
-      category: 'Carpintería',
-      address: 'Carrera 15 #89-12, Bucaramanga',
-      rating: 4.5,
-      completedServices: 67,
-      isActive: true,
-      isVerified: true,
-      joinDate: DateTime.now().subtract(const Duration(days: 30)),
-    ),
-  ];
-
-  List<ProviderModel> filteredProviders = [];
-  String searchQuery = '';
-  String selectedCategory = 'Todos';
-  String selectedStatus = 'Todos';
-  bool isLoading = false;
-  final _searchController = TextEditingController();
+  bool _isLoading = true;
+  bool _isProcessing = false;
+  String? _errorMessage;
+  String _searchQuery = '';
+  String _selectedCategory = 'Todos';
+  final String _selectedStatus = 'Todos';
 
   @override
   void initState() {
     super.initState();
-    filteredProviders = List.from(providers);
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
-    );
-    _fadeController.forward();
+    _loadProviders();
   }
 
   @override
   void dispose() {
-    _fadeController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  void _filterProviders() {
+  Future<void> _loadProviders() async {
     setState(() {
-      filteredProviders = providers.where((p) {
-        bool matchesSearch = searchQuery.isEmpty ||
-            p.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
-            p.email.toLowerCase().contains(searchQuery.toLowerCase()) ||
-            p.category.toLowerCase().contains(searchQuery.toLowerCase());
-        bool matchesCategory = selectedCategory == 'Todos' || p.category == selectedCategory;
-        bool matchesStatus = selectedStatus == 'Todos' ||
-            (selectedStatus == 'Activos' && p.isActive) ||
-            (selectedStatus == 'Inactivos' && !p.isActive) ||
-            (selectedStatus == 'Verificados' && p.isVerified) ||
-            (selectedStatus == 'No Verificados' && !p.isVerified);
-        return matchesSearch && matchesCategory && matchesStatus;
-      }).toList();
+      _isLoading = true;
+      _errorMessage = null;
     });
-  }
 
-  void _showProviderDetails(ProviderModel provider) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [primaryBlue, primaryDarkBlue],
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        provider.name.substring(0, 1).toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(provider.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkGray)),
-                        const SizedBox(height: 4),
-                        Text(provider.category, style: TextStyle(fontSize: 14, color: primaryBlue, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildDetailRow('Email', provider.email, Icons.email_rounded),
-                      _buildDetailRow('Teléfono', provider.phone, Icons.phone_rounded),
-                      _buildDetailRow('Dirección', provider.address, Icons.location_on_rounded),
-                      _buildDetailRow('Servicios Completados', '${provider.completedServices}', Icons.work_rounded),
-                      _buildDetailRow('Calificación', '${provider.rating}/5.0', Icons.star_rounded),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          _buildStatusChip('Activo', provider.isActive, Colors.green),
-                          const SizedBox(width: 12),
-                          _buildStatusChip('Verificado', provider.isVerified, primaryBlue),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _showEditProviderDialog(provider);
-                      },
-                      child: const Text('Editar'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: primaryBlue),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(fontSize: 12, color: textGray, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 2),
-              Text(value, style: const TextStyle(fontSize: 14, color: darkGray, fontWeight: FontWeight.w500)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditProviderDialog(ProviderModel provider) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Editando: ${provider.name}'), backgroundColor: primaryBlue, behavior: SnackBarBehavior.floating),
-    );
-  }
-
-  void _showFilters() {
-    final categories = ['Todos', 'Plomería', 'Limpieza', 'Electricidad', 'Jardinería', 'Carpintería'];
-    final statuses = ['Todos', 'Activos', 'Inactivos', 'Verificados', 'No Verificados'];
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setBottomSheetState) => Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Filtros', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkGray)),
-              const SizedBox(height: 24),
-              const Text('Categoría', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: darkGray)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: categories.map((c) => FilterChip(
-                  label: Text(c),
-                  selected: selectedCategory == c,
-                  onSelected: (selected) {
-                    setBottomSheetState(() => selectedCategory = c);
-                    setState(() => selectedCategory = c);
-                    _filterProviders();
-                  },
-                  selectedColor: primaryBlue.withValues(alpha: 0.2),
-                  checkmarkColor: primaryBlue,
-                )).toList(),
-              ),
-              const SizedBox(height: 24),
-              const Text('Estado', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: darkGray)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: statuses.map((s) => FilterChip(
-                  label: Text(s),
-                  selected: selectedStatus == s,
-                  onSelected: (selected) {
-                    setBottomSheetState(() => selectedStatus = s);
-                    setState(() => selectedStatus = s);
-                    _filterProviders();
-                  },
-                  selectedColor: primaryBlue.withValues(alpha: 0.2),
-                  checkmarkColor: primaryBlue,
-                )).toList(),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        setState(() {
-                          selectedCategory = 'Todos';
-                          selectedStatus = 'Todos';
-                        });
-                        _filterProviders();
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Limpiar'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(backgroundColor: primaryBlue),
-                      child: const Text('Aplicar'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProviderCard(ProviderModel provider, int index) {
-    return TweenAnimationBuilder<double>(
-      duration: Duration(milliseconds: 300 + (index * 100)),
-      tween: Tween(begin: 0.0, end: 1.0),
-      builder: (context, animation, child) {
-        return Transform.translate(
-          offset: Offset(0, 20 * (1 - animation)),
-          child: Opacity(
-            opacity: animation,
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: cardShadow, blurRadius: 10)],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => _showProviderDetails(provider),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 50,
-                              height: 50,
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [primaryBlue, primaryDarkBlue],
-                                ),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(color: primaryBlue, blurRadius: 10),
-                                ],
-                              ),
-                              child: Center(
-                                child: Text(
-                                  provider.name.substring(0, 1).toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(provider.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkGray)),
-                                  const SizedBox(height: 4),
-                                  Text(provider.category, style: TextStyle(fontSize: 14, color: primaryBlue, fontWeight: FontWeight.w600)),
-                                ],
-                              ),
-                            ),
-                            PopupMenuButton<String>(
-                              onSelected: (value) {
-                                if (value == 'details') _showProviderDetails(provider);
-                                else if (value == 'edit') _showEditProviderDialog(provider);
-                              },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(value: 'details', child: Row(children: [Icon(Icons.info_outline_rounded), SizedBox(width: 8), Text('Ver detalles')])),
-                                const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_rounded), SizedBox(width: 8), Text('Editar')])),
-                              ],
-                              child: Container(padding: const EdgeInsets.all(8), child: Icon(Icons.more_vert_rounded, color: textGray)),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Icon(Icons.email_rounded, size: 16, color: textGray),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(provider.email, style: const TextStyle(fontSize: 14, color: textGray), overflow: TextOverflow.ellipsis)),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(Icons.phone_rounded, size: 16, color: textGray),
-                            const SizedBox(width: 8),
-                            Text(provider.phone, style: const TextStyle(fontSize: 14, color: textGray)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.star_rounded, size: 14, color: Colors.orange),
-                                  const SizedBox(width: 4),
-                                  Text(provider.rating.toString(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange)),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: primaryBlue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                              child: Text('${provider.completedServices} servicios', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryBlue)),
-                            ),
-                            const Spacer(),
-                            _buildStatusChip('Activo', provider.isActive, Colors.green),
-                            const SizedBox(width: 8),
-                            _buildStatusChip('Verificado', provider.isVerified, primaryBlue),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStatusChip(String label, bool isActive, Color color) {
-    String displayLabel = label;
-    if (!isActive) {
-      if (label == 'Activo') displayLabel = 'Inactivo';
-      if (label == 'Verificado') displayLabel = 'No Verificado';
+    try {
+      final result = await _authService.getProveedoresVerificados();
+      if (result['success']) {
+        final List<dynamic> data = result['data'] ?? [];
+        if (mounted) {
+          setState(() {
+            _providers.clear();
+            _providers.addAll(data.map((e) => ProviderModel.fromJson(e)).toList());
+            _applyFilters();
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _errorMessage = result['message'];
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error inesperado: $e';
+          _isLoading = false;
+        });
+      }
     }
+  }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: isActive ? color : textGray,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        displayLabel,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
+  void _applyFilters() {
+    _filteredProviders.clear();
+    final query = _searchQuery.toLowerCase();
+
+    _filteredProviders.addAll(_providers.where((p) {
+      final matchesSearch = query.isEmpty ||
+          p.name.toLowerCase().contains(query) ||
+          p.email.toLowerCase().contains(query) ||
+          p.category.toLowerCase().contains(query);
+      
+      final matchesCategory = _selectedCategory == 'Todos' || p.category == _selectedCategory;
+      
+      final matchesStatus = _selectedStatus == 'Todos' ||
+          (_selectedStatus == 'Activos' && p.isActive) ||
+          (_selectedStatus == 'Inactivos' && !p.isActive);
+
+      return matchesSearch && matchesCategory && matchesStatus;
+    }));
+  }
+
+  Future<void> _toggleProviderStatus(ProviderModel provider) async {
+    final bool newStatus = !provider.isActive;
+    final String statusString = newStatus ? 'activo' : 'inactivo';
+
+    setState(() => _isProcessing = true);
+
+    try {
+      // Intento de actualización real basado en el método añadido a AuthService
+      final result = await _authService.actualizarEstadoProveedor(
+          int.tryParse(provider.id) ?? 0, statusString);
+
+      if (result['success']) {
+        await _auditService.logAction(
+          newStatus ? 'ACTIVACIÓN PROVEEDOR' : 'SUSPENSIÓN PROVEEDOR',
+          'El proveedor ${provider.name} (#${provider.id}) ha sido marcado como $statusString.'
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Proveedor ${provider.name} ahora está $statusString'),
+              backgroundColor: newStatus ? successGreen : Colors.orange,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        _loadProviders();
+      } else {
+        // Si el endpoint no existe o falla, seguimos la instrucción del usuario
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Funcionalidad en desarrollo: Pendiente de integración con API de estados completa'),
+              backgroundColor: primaryBlue,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: errorRed),
+          );
+        }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: lightGray,
-      body: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            color: Colors.white,
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: primaryDarkBlue.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.business_rounded, color: primaryDarkBlue, size: 24),
-                      ),
-                      const SizedBox(width: 16),
-                      const Text('Gestión de Proveedores', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkGray)),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(color: primaryBlue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
-                        child: Text('${filteredProviders.length} proveedores', style: TextStyle(color: primaryBlue, fontSize: 14, fontWeight: FontWeight.w600)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          onChanged: (value) {
-                            searchQuery = value;
-                            _filterProviders();
-                          },
-                          decoration: InputDecoration(
-                            hintText: 'Buscar proveedores...',
-                            prefixIcon: Icon(Icons.search_rounded, color: textGray),
-                            suffixIcon: searchQuery.isNotEmpty ? IconButton(icon: Icon(Icons.clear_rounded, color: textGray), onPressed: () { _searchController.clear(); searchQuery = ''; _filterProviders(); }) : null,
-                            filled: true,
-                            fillColor: lightGray,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryBlue, width: 2)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        width: 48,
-                        height: 48,
-                        child: IconButton(
-                          onPressed: _showFilters,
-                          style: IconButton.styleFrom(backgroundColor: primaryBlue, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                          icon: const Icon(Icons.filter_list_rounded, color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FB),
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(130),
+            child: AdminHeader(
+              title: 'Gestión Proveedores',
+              subtitle: 'Control operativo de la red de servicios',
+              action: IconButton(
+                icon: const Icon(Icons.refresh_rounded, color: primaryBlue),
+                onPressed: _loadProviders,
+                tooltip: 'Refrescar datos',
               ),
             ),
           ),
-          Expanded(
-            child: filteredProviders.isEmpty
-                ? FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(color: textGray.withValues(alpha: 0.1), shape: BoxShape.circle),
-                            child: Icon(searchQuery.isNotEmpty ? Icons.search_off_rounded : Icons.business_rounded, size: 40, color: textGray),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            searchQuery.isNotEmpty ? 'No se encontraron proveedores' : 'No hay proveedores registrados',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: textGray),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.only(top: 10, bottom: 20),
-                    itemCount: filteredProviders.length,
-                    itemBuilder: (context, index) => _buildProviderCard(filteredProviders[index], index),
-                  ),
+          body: Column(
+            children: [
+              AdminSearchBar(
+                controller: _searchController,
+                hintText: 'Buscar por nombre, correo o especialidad...',
+                onChanged: (val) {
+                  _searchQuery = val;
+                  setState(() => _applyFilters());
+                },
+                onFilterPressed: () => _showFiltersModal(),
+                hasActiveFilters: _selectedCategory != 'Todos' || _selectedStatus != 'Todos',
+              ),
+              Expanded(
+                child: _isLoading
+                    ? const AdminLoadingOverlay()
+                    : _errorMessage != null
+                        ? _buildErrorState()
+                        : _filteredProviders.isEmpty
+                            ? const AdminEmptyState(
+                                icon: Icons.business_rounded,
+                                title: 'Sin coincidencias',
+                                subtitle: 'No encontramos proveedores con esos criterios de búsqueda.',
+                              )
+                            : _buildProviderList(),
+              ),
+            ],
           ),
+        ),
+        if (_isProcessing)
+          const AdminLoadingOverlay(),
+      ],
+    );
+  }
+
+  Widget _buildErrorState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.warning_amber_rounded, size: 48, color: Colors.amber),
+          const SizedBox(height: 16),
+          Text(
+            _errorMessage!, 
+            style: TextStyle(color: isDark ? Colors.white70 : textGray)
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(onPressed: _loadProviders, child: const Text('REINTENTAR')),
         ],
       ),
     );
   }
+
+  Widget _buildProviderList() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(24),
+      itemCount: _filteredProviders.length,
+      itemBuilder: (context, index) => _buildProviderCard(_filteredProviders[index]),
+    );
+  }
+
+  Widget _buildProviderCard(ProviderModel provider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                _buildAvatar(provider.name),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        provider.name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold, 
+                          fontSize: 16, 
+                          color: isDark ? Colors.white : darkGray
+                        ),
+                      ),
+                      Text(
+                        provider.category, 
+                        style: const TextStyle(
+                          fontSize: 13, 
+                          color: primaryBlue, 
+                          fontWeight: FontWeight.w600
+                        )
+                      ),
+                    ],
+                  ),
+                ),
+                AdminDataBadge.status(provider.isActive ? 'ACTIVO' : 'INACTIVO'),
+              ],
+            ),
+            const Divider(height: 32),
+            Row(
+              children: [
+                 _buildInfoItem(Icons.email_outlined, provider.email),
+                 const Spacer(),
+                 _buildRating(provider.rating),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: AdminActionCard(
+                    label: provider.isActive ? 'Desactivar Cuenta' : 'Activar Cuenta',
+                    onTap: () => _toggleProviderStatus(provider),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: AdminActionCard(
+                    label: 'Ver Perfil',
+                    isDisabled: true,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(String name) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2C2C2C) : backgroundGray,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Center(
+        child: Text(
+          name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'P',
+          style: TextStyle(
+            color: isDark ? Colors.white : darkGray, 
+            fontWeight: FontWeight.bold
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(IconData icon, String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: isDark ? Colors.white54 : textGray),
+        const SizedBox(width: 6),
+        Text(
+          text, 
+          style: TextStyle(
+            fontSize: 13, 
+            color: isDark ? Colors.white54 : textGray
+          )
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRating(double rating) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Row(
+      children: [
+        const Icon(Icons.star_rounded, size: 16, color: Colors.orange),
+        const SizedBox(width: 4),
+        Text(
+          rating.toStringAsFixed(1),
+          style: TextStyle(
+            fontSize: 13, 
+            fontWeight: FontWeight.bold, 
+            color: isDark ? Colors.white : darkGray
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showFiltersModal() {
+    final categories = ['Todos', ..._providers.map((p) => p.category).toSet()];
+    
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Filtrar Proveedores', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              const Text('Categoría', style: TextStyle(fontSize: 14, color: textGray)),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: categories.map((c) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(c),
+                      selected: _selectedCategory == c,
+                      onSelected: (val) {
+                        setModalState(() => _selectedCategory = c);
+                        setState(() {
+                          _selectedCategory = c;
+                          _applyFilters();
+                        });
+                      },
+                    ),
+                  )).toList(),
+                ),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryBlue,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text('APLICAR FILTROS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
-
-

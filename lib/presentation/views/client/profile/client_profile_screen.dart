@@ -19,6 +19,7 @@ class ClientProfileScreen extends StatefulWidget {
 
 class _ClientProfileScreenState extends State<ClientProfileScreen> {
   String _userName = 'Usuario';
+  bool _isSwitchingRole = false;
 
   @override
   void initState() {
@@ -61,11 +62,11 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [
+                boxShadow: const [
                   BoxShadow(
                     color: cardShadow,
                     blurRadius: 10,
-                    offset: const Offset(0, 2),
+                    offset: Offset(0, 2),
                   ),
                 ],
               ),
@@ -108,7 +109,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '$_userName',
+                    _userName,
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
@@ -224,76 +225,43 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
             const SizedBox(height: 40),
 
             _buildActionButton(
-              title: 'Cambiar a proveedor',
+              title: _isSwitchingRole ? 'Cambiando...' : 'Cambiar a proveedor',
               color: primaryBlue,
-              onTap: () async {
-                HapticFeedback.lightImpact();
-                
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) => const Center(child: CircularProgressIndicator(color: primaryBlue)),
-                );
+              isLoading: _isSwitchingRole,
+              onTap: _isSwitchingRole
+                  ? null
+                  : () async {
+                      HapticFeedback.lightImpact();
+                      setState(() => _isSwitchingRole = true);
 
-                final authService = locator<AuthService>();
-                // Intentar cambio de rol directamente
-                final result = await authService.switchRole('proveedor');
-                
-                if (!mounted) return;
-                Navigator.pop(context); // Cerrar loading
-                
-                if (result['success'] == true) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sesión cambiada a Proveedor')),
-                  );
-                  Navigator.pushReplacementNamed(context, AppRoutes.providerHome);
-                } else {
-                  final int code = result['statusCode'] ?? 0;
-                  final String msg = (result['message'] ?? '').toLowerCase();
-                  final String body = (result['body'] ?? '').toLowerCase();
+                      final authService = locator<AuthService>();
+                      final result = await authService.switchRole('proveedor');
 
-                  if (code == 401) {
-                    widget.onLogout();
-                    return;
-                  }
+                      if (!context.mounted) return;
+                      setState(() => _isSwitchingRole = false);
 
-                  // Solo redirigir al formulario si el backend indica que no tiene el rol
-                  // Un error 400 o 403 con mensaje de "no tiene rol" o "no es proveedor"
-                  bool isNotProviderError = msg.contains('no tiene rol') || 
-                                            msg.contains('no es proveedor') || 
-                                            msg.contains('not a provider') ||
-                                            body.contains('not_provider');
-
-                  // Si no está aprobado pero YA ES proveedor (rol asignado pero no activo),
-                  // el backend suele dar un mensaje de "pendiente" o "revisión".
-                  bool isPendingApproval = msg.contains('en revisión') || 
-                                          msg.contains('pendiente') ||
-                                          msg.contains('no está aprobado') ||
-                                          msg.contains('no esta aprobado') ||
-                                          body.contains('not_approved');
-
-                  if ((code == 403 || code == 400) && isNotProviderError) {
-                    // Redirigir al formulario solo si NO tiene el rol en absoluto
-                    Navigator.pushNamed(context, AppRoutes.providerRequest);
-                  } else if (isPendingApproval) {
-                    // Mostrar mensaje de que está en revisión, no mostrar formulario de nuevo
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(result['message'] ?? 'Tu solicitud de proveedor está en revisión.'), 
-                        backgroundColor: warningOrange,
-                      ),
-                    );
-                  } else {
-                    // Otros errores (500, red, etc.)
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(result['message'] ?? 'Error al cambiar de rol'), 
-                        backgroundColor: errorRed,
-                      ),
-                    );
-                  }
-                }
-              },
+                      if (result['success'] == true) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Sesión cambiada a Proveedor'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                        Navigator.pushReplacementNamed(context, AppRoutes.providerHome);
+                      } else if (result['requiresProviderApplication'] == true) {
+                        // No tiene el rol Proveedor → ir al formulario de solicitud
+                        Navigator.pushNamed(context, AppRoutes.providerRequest);
+                      } else {
+                        // Error del backend con mensaje (tiene el rol pero falla otra cosa)
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(result['message'] ?? 'No se pudo cambiar el rol'),
+                            backgroundColor: errorRed,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    },
             ),
 
             const SizedBox(height: 16),
@@ -348,7 +316,8 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
   Widget _buildActionButton({
     required String title,
     required Color color,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
+    bool isLoading = false,
   }) {
     return SizedBox(
       width: double.infinity,
@@ -363,13 +332,22 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
           ),
           elevation: 2,
         ),
-        child: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        child: isLoading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
       ),
     );
   }
@@ -408,11 +386,11 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
             color: cardShadow,
             blurRadius: 8,
-            offset: const Offset(0, 2),
+            offset: Offset(0, 2),
           ),
         ],
       ),

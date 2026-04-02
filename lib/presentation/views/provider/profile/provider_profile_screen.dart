@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:servizone_app/core/locator.dart';
+import 'package:servizone_app/core/routes/app_routes.dart';
 import 'package:servizone_app/data/providers/auth_service.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
-import 'package:servizone_app/presentation/views/provider/provider_bookings_screen.dart';
-import 'package:servizone_app/presentation/views/provider/provider_home_screen.dart';
-import 'package:servizone_app/presentation/views/provider/services/provider_services_screen.dart';
 import 'package:servizone_app/presentation/views/provider/profile/provider_edit_profile_screen.dart';
 import 'package:servizone_app/presentation/views/provider/profile/provider_change_password_screen.dart';
-import 'package:servizone_app/presentation/views/client/home_client_screen.dart';
 
 import 'package:servizone_app/presentation/views/common/booking_history_screen.dart';
 import 'package:servizone_app/presentation/widgets/shared/provider_bottom_nav.dart';
@@ -24,7 +21,6 @@ class ProviderProfileScreen extends StatefulWidget {
 
 class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   String _userName = 'Usuario';
-  int _currentIndex = 3; // Cuenta activa
 
   @override
   void initState() {
@@ -82,9 +78,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
               if (result['success'] == true) {
                 // Limpiar pila y navegar a cliente
-                Navigator.pushAndRemoveUntil(
+                Navigator.pushNamedAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (context) => const HomeClientScreen()),
+                  AppRoutes.clientHome,
                   (route) => false,
                 );
               } else {
@@ -142,11 +138,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [
+                boxShadow: const [
                   BoxShadow(
                     color: cardShadow,
                     blurRadius: 10,
-                    offset: const Offset(0, 2),
+                    offset: Offset(0, 2),
                   ),
                 ],
               ),
@@ -189,7 +185,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '@$_userName',
+                    _userName,
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
@@ -421,11 +417,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
             color: cardShadow,
             blurRadius: 8,
-            offset: const Offset(0, 2),
+            offset: Offset(0, 2),
           ),
         ],
       ),
@@ -464,7 +460,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         const SizedBox(height: 4),
                         Text(
                           subtitle,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 14,
                             color: textGray,
                           ),
@@ -473,7 +469,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     ],
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios_rounded, color: textGray, size: 16),
+                const Icon(Icons.arrow_forward_ios_rounded, color: textGray, size: 16),
               ],
             ),
           ),

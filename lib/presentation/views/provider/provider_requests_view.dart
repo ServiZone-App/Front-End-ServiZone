@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
 import 'package:servizone_app/data/models/booking_model.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:servizone_app/core/routes/app_routes.dart';
 import 'package:servizone_app/core/locator.dart';
-import 'package:servizone_app/core/services/provider_booking_service.dart';
 import 'package:servizone_app/presentation/widgets/shared/provider_bottom_nav.dart';
 import 'package:servizone_app/presentation/widgets/shared/status_badge.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:servizone_app/domain/repositories/auth_repository.dart';
+import 'package:servizone_app/presentation/viewmodels/booking_view_model.dart';
 
 class ProviderRequestsView extends StatefulWidget {
   const ProviderRequestsView({super.key});
@@ -18,8 +17,8 @@ class ProviderRequestsView extends StatefulWidget {
 }
 
 class _ProviderRequestsViewState extends State<ProviderRequestsView> {
-  final _bookingService = locator<ProviderBookingService>();
-  final String _currentProviderId = 'P1';
+  late final BookingViewModel _vm;
+  int? _proveedorId;
   final TextEditingController _searchController = TextEditingController();
 
   String _searchQuery = '';
@@ -33,18 +32,38 @@ class _ProviderRequestsViewState extends State<ProviderRequestsView> {
   @override
   void initState() {
     super.initState();
-    _bookingService.addListener(_onServiceUpdate);
+    _vm = locator<BookingViewModel>();
+    _vm.addListener(_onServiceUpdate);
+    _load();
   }
 
   @override
   void dispose() {
-    _bookingService.removeListener(_onServiceUpdate);
+    _vm.removeListener(_onServiceUpdate);
     _searchController.dispose();
     super.dispose();
   }
 
   void _onServiceUpdate() {
     setState(() {});
+  }
+
+  Future<void> _load() async {
+    final authRepo = locator<AuthRepository>();
+    final res = await authRepo.getCurrentProveedorId();
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      setState(() => _proveedorId = res.data);
+      await _vm.loadProviderPending(
+        res.data!,
+        query: _searchQuery,
+        date: _selectedDate,
+        serviceName: _selectedService,
+      );
+    } else {
+      setState(() => _proveedorId = null);
+      _vm.setError(res.message.isNotEmpty ? res.message : 'No se pudo verificar tu ID de proveedor. Contacta a soporte.');
+    }
   }
 
   void _shareToWhatsApp(BookingModel booking) async {
@@ -65,10 +84,21 @@ class _ProviderRequestsViewState extends State<ProviderRequestsView> {
       color: Colors.white,
       child: TextField(
         controller: _searchController,
-        onChanged: (v) => setState(() {
-          _searchQuery = v;
-          _currentPage = 1; // reset pagination
-        }),
+        onChanged: (v) async {
+          setState(() {
+            _searchQuery = v;
+            _currentPage = 1;
+          });
+          final id = _proveedorId;
+          if (id != null) {
+            await _vm.loadProviderPending(
+              id,
+              query: _searchQuery,
+              date: _selectedDate,
+              serviceName: _selectedService,
+            );
+          }
+        },
         style: const TextStyle(color: textGray),
         decoration: InputDecoration(
           hintText: 'Buscar por cliente...',
@@ -87,12 +117,7 @@ class _ProviderRequestsViewState extends State<ProviderRequestsView> {
   }
 
   List<BookingModel> get _allFilteredRequests {
-    return _bookingService.getPendingRequests(
-      _currentProviderId,
-      query: _searchQuery,
-      date: _selectedDate,
-      serviceName: _selectedService,
-    );
+    return _vm.bookings;
   }
 
   List<BookingModel> get _paginatedRequests {
@@ -226,6 +251,10 @@ class _ProviderRequestsViewState extends State<ProviderRequestsView> {
               child: ElevatedButton(
                 onPressed: isValid ? () {
                   try {
+                    final proveedorId = _proveedorId;
+                    if (proveedorId == null) {
+                      throw Exception('No se pudo obtener el ID del proveedor.');
+                    }
                     // Combinar fecha y hora
                     final dateParts = dateController.text.split('-');
                     final timeParts = timeController.text.split(':');
@@ -237,11 +266,11 @@ class _ProviderRequestsViewState extends State<ProviderRequestsView> {
                       int.parse(timeParts[1]),
                     );
 
-                    _bookingService.confirmRequest(
-                      request.id, 
-                      _currentProviderId, 
-                      combinedDate, 
-                      addressController.text
+                    _vm.confirm(
+                      request.id,
+                      proveedorId,
+                      combinedDate,
+                      addressController.text,
                     );
                     
                     Navigator.pop(context);
@@ -285,7 +314,11 @@ class _ProviderRequestsViewState extends State<ProviderRequestsView> {
             onPressed: () {
               if (reasonController.text.isNotEmpty) {
                 try {
-                  _bookingService.rejectRequest(request.id, _currentProviderId, reasonController.text);
+                  final proveedorId = _proveedorId;
+                  if (proveedorId == null) {
+                    throw Exception('No se pudo obtener el ID del proveedor.');
+                  }
+                  _vm.reject(request.id, proveedorId, reasonController.text);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Solicitud rechazada correctamente'), backgroundColor: errorRed),
@@ -324,6 +357,7 @@ class _ProviderRequestsViewState extends State<ProviderRequestsView> {
       body: Column(
         children: [
           _buildSearchBar(),
+          const SizedBox(height: 16), // Espacio entre buscador y lista
           if (_selectedDate != null || _selectedService != null)
              Padding(
                padding: const EdgeInsets.only(bottom: 8.0),
@@ -480,6 +514,34 @@ class _ProviderRequestsViewState extends State<ProviderRequestsView> {
   }
 
   Widget _buildEmptyState() {
+    if (_vm.isBusy) {
+      return const Center(child: CircularProgressIndicator(color: primaryBlue));
+    }
+    final err = _vm.error;
+    if (err != null && err.isNotEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline_rounded, size: 80, color: errorRed),
+              const SizedBox(height: 16),
+              Text(err, textAlign: TextAlign.center, style: const TextStyle(color: textGray)),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: 200,
+                child: ElevatedButton(
+                  onPressed: _load,
+                  style: ElevatedButton.styleFrom(backgroundColor: primaryBlue),
+                  child: const Text('Reintentar', style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -496,7 +558,7 @@ class _ProviderRequestsViewState extends State<ProviderRequestsView> {
 
 
   void _showFilters() {
-    final services = _bookingService.getProviderServiceNames(_currentProviderId);
+    final services = _vm.bookings.map((b) => b.serviceName).toSet().toList()..sort();
     
     showModalBottomSheet(
       context: context,
@@ -524,6 +586,15 @@ class _ProviderRequestsViewState extends State<ProviderRequestsView> {
                       _selectedDate = date; 
                       _currentPage = 1;
                     });
+                    final id = _proveedorId;
+                    if (id != null) {
+                      _vm.loadProviderPending(
+                        id,
+                        query: _searchQuery,
+                        date: _selectedDate,
+                        serviceName: _selectedService,
+                      );
+                    }
                   }
                 },
               ),
@@ -546,6 +617,15 @@ class _ProviderRequestsViewState extends State<ProviderRequestsView> {
                                 _selectedService = s;
                                 _currentPage = 1;
                               });
+                              final id = _proveedorId;
+                              if (id != null) {
+                                _vm.loadProviderPending(
+                                  id,
+                                  query: _searchQuery,
+                                  date: _selectedDate,
+                                  serviceName: _selectedService,
+                                );
+                              }
                               Navigator.pop(context);
                             },
                           )).toList(),
@@ -567,6 +647,15 @@ class _ProviderRequestsViewState extends State<ProviderRequestsView> {
                       _selectedService = null;
                       _currentPage = 1;
                     });
+                    final id = _proveedorId;
+                    if (id != null) {
+                      _vm.loadProviderPending(
+                        id,
+                        query: _searchQuery,
+                        date: _selectedDate,
+                        serviceName: _selectedService,
+                      );
+                    }
                     Navigator.pop(context);
                   },
                   child: const Text('Limpiar Filtros'),

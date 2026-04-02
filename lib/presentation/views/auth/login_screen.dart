@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
-import 'package:servizone_app/core/routes/app_routes.dart';
 import 'package:servizone_app/core/locator.dart';
-import 'package:servizone_app/data/providers/auth_service.dart';
 import 'package:servizone_app/core/routes/app_routes.dart';
+import 'package:servizone_app/presentation/viewmodels/auth_view_model.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen>
@@ -30,10 +29,12 @@ class _LoginScreenState extends State<LoginScreen>
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  late final AuthViewModel _vm;
 
   @override
   void initState() {
     super.initState();
+    _vm = locator<AuthViewModel>();
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -105,9 +106,9 @@ class _LoginScreenState extends State<LoginScreen>
     final email = correoController.text.trim();
     final password = passwordController.text.trim();
 
-    final result = await locator<AuthService>().login(email, password);
+    final result = await _vm.login(email, password);
 
-    if (result['success'] == true) {
+    if (result.success) {
       setState(() {
         _showLoadingScreen = false;
         _showSuccessScreen = true;
@@ -115,7 +116,7 @@ class _LoginScreenState extends State<LoginScreen>
 
       Future.delayed(const Duration(seconds: 1), () {
         if (!mounted) return;
-        final role = result['role'];
+        final role = result.data?['role'];
         switch (role) {
           case 'admin':
             Navigator.pushReplacementNamed(context, AppRoutes.adminDashboard);
@@ -133,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen>
         }
       });
     } else {
-      _showError(result['message'] ?? 'Credenciales incorrectas');
+      _showError(result.message.isNotEmpty ? result.message : 'Credenciales incorrectas');
     }
 
     setState(() => loading = false);
@@ -157,7 +158,7 @@ class _LoginScreenState extends State<LoginScreen>
       duration: const Duration(milliseconds: 300),
       child: _showLoadingScreen
           ? Container(
-              color: Colors.black.withOpacity(0.8),
+              color: Colors.black.withValues(alpha: 0.8),
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.all(32),
@@ -166,13 +167,13 @@ class _LoginScreenState extends State<LoginScreen>
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withValues(alpha: 0.3),
                         blurRadius: 20,
                         spreadRadius: 5,
                       ),
                     ],
                   ),
-                  child: Column(
+                  child: const Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       SizedBox(
@@ -183,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen>
                           valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20),
                       Text(
                         'Validando credenciales',
                         style: TextStyle(
@@ -192,7 +193,7 @@ class _LoginScreenState extends State<LoginScreen>
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       Text(
                         'Iniciando sesión...',
                         style: TextStyle(
@@ -215,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen>
       duration: const Duration(milliseconds: 300),
       child: _showSuccessScreen
           ? Container(
-              color: Colors.black.withOpacity(0.8),
+              color: Colors.black.withValues(alpha: 0.8),
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.all(32),
@@ -224,7 +225,7 @@ class _LoginScreenState extends State<LoginScreen>
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withValues(alpha: 0.3),
                         blurRadius: 20,
                         spreadRadius: 5,
                       ),
@@ -237,7 +238,7 @@ class _LoginScreenState extends State<LoginScreen>
                         width: 60,
                         height: 60,
                         decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
+                          color: Colors.green.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -256,7 +257,7 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
+                      const Text(
                         'Bienvenido a ServiZone',
                         style: TextStyle(
                           fontSize: 14,
@@ -278,7 +279,7 @@ class _LoginScreenState extends State<LoginScreen>
       duration: const Duration(milliseconds: 300),
       child: _showErrorScreen
           ? Container(
-              color: Colors.black.withOpacity(0.8),
+              color: Colors.black.withValues(alpha: 0.8),
               child: Center(
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 32),
@@ -288,7 +289,7 @@ class _LoginScreenState extends State<LoginScreen>
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withValues(alpha: 0.3),
                         blurRadius: 20,
                         spreadRadius: 5,
                       ),
@@ -301,7 +302,7 @@ class _LoginScreenState extends State<LoginScreen>
                         width: 60,
                         height: 60,
                         decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
+                          color: Colors.red.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -323,7 +324,7 @@ class _LoginScreenState extends State<LoginScreen>
                       Text(
                         _errorMessage,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 14,
                           color: mediumGray,
                         ),
@@ -387,47 +388,8 @@ class _LoginScreenState extends State<LoginScreen>
           borderSide: const BorderSide(color: Colors.red, width: 1),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        labelStyle: TextStyle(color: mediumGray, fontSize: 14),
-        hintStyle: TextStyle(color: mediumGray.withOpacity(0.7), fontSize: 14),
-      ),
-    );
-  }
-
-  Widget _buildSocialButton({
-    required String text,
-    required IconData icon,
-    required Color iconColor,
-    required VoidCallback onPressed,
-  }) {
-    return Container(
-      width: double.infinity,
-      height: 54,
-      margin: const EdgeInsets.only(bottom: 12),
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.white,
-          side: BorderSide(color: Colors.grey.shade300, width: 1.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 0,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: iconColor, size: 22),
-            const SizedBox(width: 12),
-            Text(
-              text,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: darkGray,
-              ),
-            ),
-          ],
-        ),
+        labelStyle: const TextStyle(color: mediumGray, fontSize: 14),
+        hintStyle: TextStyle(color: mediumGray.withValues(alpha: 0.7), fontSize: 14),
       ),
     );
   }
@@ -474,7 +436,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              Text(
+                              const Text(
                                 'Tu plataforma de servicios',
                                 style: TextStyle(
                                   fontSize: 16,
@@ -495,7 +457,7 @@ class _LoginScreenState extends State<LoginScreen>
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
+                                color: Colors.black.withValues(alpha: 0.08),
                                 blurRadius: 20,
                                 spreadRadius: 0,
                                 offset: const Offset(0, 4),
@@ -516,7 +478,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
+                                const Text(
                                   'Accede a tu cuenta',
                                   style: TextStyle(
                                     fontSize: 16,
@@ -586,7 +548,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 const SizedBox(height: 20),
 
                                 // Botón principal de inicio de sesión
-                                Container(
+                                SizedBox(
                                   width: double.infinity,
                                   height: 54,
                                   child: ElevatedButton(
@@ -598,7 +560,7 @@ class _LoginScreenState extends State<LoginScreen>
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       elevation: 0,
-                                      shadowColor: primaryBlue.withOpacity(0.3),
+                                      shadowColor: primaryBlue.withValues(alpha: 0.3),
                                     ),
                                     child: loading
                                         ? const SizedBox(
@@ -648,7 +610,7 @@ class _LoginScreenState extends State<LoginScreen>
                                       Navigator.pushNamed(context, AppRoutes.register);
                                     },
                                     child: RichText(
-                                      text: TextSpan(
+                                      text: const TextSpan(
                                         text: '¿No tienes cuenta? ',
                                         style: TextStyle(
                                           color: mediumGray,
@@ -672,7 +634,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 const SizedBox(height: 20),
 
                                 // Términos y condiciones
-                                Text(
+                                const Text(
                                   "Al continuar, aceptas nuestros Términos de servicio y Política de privacidad",
                                   textAlign: TextAlign.center,
                                   style: TextStyle(

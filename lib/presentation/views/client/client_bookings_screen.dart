@@ -5,6 +5,9 @@ import 'package:servizone_app/core/constants/app_constants.dart';
 import 'package:servizone_app/data/models/booking_model.dart';
 import 'package:servizone_app/presentation/widgets/shared/status_badge.dart';
 import 'package:servizone_app/presentation/widgets/shared/booking_detail_sheet.dart';
+import 'package:servizone_app/core/locator.dart';
+import 'package:servizone_app/domain/repositories/auth_repository.dart';
+import 'package:servizone_app/presentation/viewmodels/booking_view_model.dart';
 
 class ClientBookingsScreen extends StatefulWidget {
   const ClientBookingsScreen({super.key});
@@ -17,45 +20,49 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
   String _priceSort = 'none'; // 'asc', 'desc', 'none'
   String _dateSort = 'desc'; // 'asc', 'desc'
   final List<String> _selectedServiceTypes = [];
+  late final BookingViewModel _vm;
+  int? _clienteId;
 
   List<String> get _availableServiceTypes {
-    return _allBookings.map((e) => e.serviceType).toSet().toList();
+    return _bookingsNoPendientes.map((e) => e.serviceType).toSet().toList();
   }
   
-  // Datos de ejemplo para las reservas (excluyendo pendientes)
-  final List<BookingModel> _allBookings = [
-    BookingModel(
-      id: '1',
-      clientId: 'C1',
-      providerId: 'P1',
-      clientName: 'Juan Pérez',
-      serviceType: 'Plomería',
-      serviceName: 'Fuga de agua',
-      date: DateTime.now().subtract(const Duration(days: 2)),
-      address: 'Calle 123 # 45-67',
-      price: 45000,
-      status: BookingStatus.confirmada,
-      providerName: 'Carlos Electrics',
-    ),
-    BookingModel(
-      id: '3',
-      clientId: 'C1',
-      providerId: 'P3',
-      clientName: 'Juan Pérez',
-      serviceType: 'Limpieza',
-      serviceName: 'Limpieza de Hogar',
-      date: DateTime.now().subtract(const Duration(days: 15)),
-      address: 'Calle 123 # 45-67',
-      price: 80000,
-      status: BookingStatus.completada,
-      rating: 4.5,
-      review: 'Excelente servicio, muy puntual.',
-      providerName: 'Limpieza Pro',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _vm = locator<BookingViewModel>();
+    _vm.addListener(_onChanged);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _vm.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _load() async {
+    final authRepo = locator<AuthRepository>();
+    final res = await authRepo.getCurrentClienteId();
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      setState(() => _clienteId = res.data);
+      await _vm.loadClientBookings(res.data!);
+    } else {
+      setState(() => _clienteId = null);
+      _vm.setError(res.message.isNotEmpty ? res.message : 'No se pudo verificar tu ID de cliente. Contacta a soporte.');
+    }
+  }
+
+  List<BookingModel> get _bookingsNoPendientes =>
+      _vm.bookings.where((b) => b.status != BookingStatus.pendiente).toList();
 
   List<BookingModel> get _filteredBookings {
-    var list = _allBookings.where((booking) {
+    var list = _bookingsNoPendientes.where((booking) {
       bool typeMatch = _selectedServiceTypes.isEmpty || _selectedServiceTypes.contains(booking.serviceType);
       
       return typeMatch;
@@ -157,20 +164,18 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (reasonController.text.trim().isEmpty) {
                       _showNotification('El motivo es obligatorio', isError: true);
                       return;
                     }
-                    setState(() {
-                      final index = _allBookings.indexWhere((b) => b.id == booking.id);
-                      _allBookings[index] = booking.copyWith(
-                        status: BookingStatus.cancelada,
-                        cancellationReason: reasonController.text,
-                      );
-                    });
-                    Navigator.pop(ctx);
-                    _showNotification('Reserva cancelada correctamente');
+                    final clienteId = _clienteId;
+                    if (clienteId == null) return;
+                    final res = await _vm.cancel(booking.id, clienteId, reasonController.text.trim());
+                    if (!mounted) return;
+                    Navigator.of(context).pop();
+                    _showNotification(res.success ? 'Reserva cancelada correctamente' : res.message, isError: !res.success);
+                    if (res.success) await _load();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: errorRed,
@@ -240,16 +245,19 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        final index = _allBookings.indexWhere((b) => b.id == booking.id);
-                        _allBookings[index] = booking.copyWith(
-                          rating: selectedRating,
-                          review: reviewController.text,
-                        );
-                      });
-                      Navigator.pop(ctx);
-                      _showNotification('¡Gracias por tu calificación!');
+                    onPressed: () async {
+                      final clienteId = _clienteId;
+                      if (clienteId == null) return;
+                      final res = await _vm.rate(
+                        booking.id,
+                        clienteId,
+                        selectedRating,
+                        reviewController.text.trim(),
+                      );
+                      if (!mounted) return;
+                      Navigator.of(context).pop();
+                      _showNotification(res.success ? '¡Gracias por tu calificación!' : res.message, isError: !res.success);
+                      if (res.success) await _load();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: successGreen,
@@ -399,7 +407,7 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: cardShadow, blurRadius: 10, offset: const Offset(0, 4))],
+          boxShadow: const [BoxShadow(color: cardShadow, blurRadius: 10, offset: Offset(0, 4))],
         ),
         child: Column(
           children: [
@@ -513,6 +521,34 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
   }
 
   Widget _buildEmptyState() {
+    if (_vm.isBusy) {
+      return const Center(child: CircularProgressIndicator(color: primaryBlue));
+    }
+    final err = _vm.error;
+    if (err != null && err.isNotEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline_rounded, size: 80, color: errorRed),
+              const SizedBox(height: 16),
+              Text(err, textAlign: TextAlign.center, style: const TextStyle(color: textGray)),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: 200,
+                child: ElevatedButton(
+                  onPressed: _load,
+                  style: ElevatedButton.styleFrom(backgroundColor: primaryBlue),
+                  child: const Text('Reintentar', style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -526,5 +562,3 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
     );
   }
 }
-
-

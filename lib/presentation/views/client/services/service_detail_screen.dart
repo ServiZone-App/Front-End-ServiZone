@@ -98,10 +98,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> with SingleTi
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, String>> reviews = [
-      {'name': 'Pepe perez', 'comment': 'lorem upsum lorem ipsum lorem ipsum lorem ipsum'},
-      {'name': 'Pepe perez', 'comment': 'lorem upsum lorem ipsum lorem ipsum lorem ipsum'},
-    ];
+    const reviews = <Map<String, String>>[];
+    final int reviewCount = (widget.service['reviewCount'] as int?) ?? 0;
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -163,7 +161,9 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> with SingleTi
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris tincidunt accumsan dapibus. Suspendisse non vehicula nunc, vitae tempor dui. Fusce ipsum sapien, ornare sollicitudin fermentum ut, dapibus convallis tortor.',
+                      (widget.service['description'] as String?)?.trim().isNotEmpty == true
+                          ? widget.service['description']
+                          : 'Sin descripción disponible.',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const Padding(
@@ -182,14 +182,19 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> with SingleTi
               // Reseñas
               _buildCardSection(
                 title: 'Reseñas',
-                subtitle: '(15) Reseñas',
-                content: ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: reviews.length,
-                  separatorBuilder: (context, index) => const Divider(height: 32),
-                  itemBuilder: (context, index) => _buildReviewItem(reviews[index]),
-                ),
+                subtitle: '($reviewCount) Reseñas',
+                content: reviews.isEmpty
+                    ? const Text('Aún no hay reseñas para este servicio.',
+                        style: TextStyle(color: textGray))
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: reviews.length,
+                        separatorBuilder: (context, index) =>
+                            const Divider(height: 32),
+                        itemBuilder: (context, index) =>
+                            _buildReviewItem(reviews[index]),
+                      ),
               ),
               const SizedBox(height: 40),
             ],
@@ -216,7 +221,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> with SingleTi
                 ),
               ),
               TextSpan(
-                text: '(15) Reseñas',
+                text:
+                    '(${(widget.service['reviewCount'] as int?) ?? 0}) Reseñas',
                 style: const TextStyle(color: textGray, fontSize: 14),
               ),
             ],
@@ -453,5 +459,3 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> with SingleTi
     );
   }
 }
-
-

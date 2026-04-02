@@ -5,6 +5,9 @@ import 'package:servizone_app/core/constants/app_constants.dart';
 import 'package:servizone_app/data/models/booking_model.dart';
 import 'package:servizone_app/presentation/widgets/shared/status_badge.dart';
 import 'package:servizone_app/presentation/widgets/shared/booking_detail_sheet.dart';
+import 'package:servizone_app/core/locator.dart';
+import 'package:servizone_app/domain/repositories/auth_repository.dart';
+import 'package:servizone_app/presentation/viewmodels/booking_view_model.dart';
 
 class ClientRequestsScreen extends StatefulWidget {
   const ClientRequestsScreen({super.key});
@@ -17,43 +20,79 @@ class _ClientRequestsScreenState extends State<ClientRequestsScreen> {
   String _priceSort = 'none'; // 'asc', 'desc', 'none'
   String _dateSort = 'desc'; // 'asc', 'desc'
   final List<String> _selectedServiceTypes = [];
+  late final BookingViewModel _vm;
+  int? _clienteId;
 
-  // Datos de ejemplo para las solicitudes (solo pendientes)
-  final List<BookingModel> _allRequests = [
-    BookingModel(
-      id: 'req1',
-      clientId: 'C1',
-      providerId: 'P1',
-      clientName: 'Juan Pérez',
-      serviceType: 'Plomería',
-      serviceName: 'Fuga de agua',
-      date: DateTime.now().add(const Duration(days: 1)),
-      address: 'Calle 123 # 45-67',
-      price: 45000,
-      status: BookingStatus.pendiente,
-      providerName: 'Carlos Electrics',
-    ),
-    BookingModel(
-      id: 'req2',
-      clientId: 'C1',
-      providerId: 'P2',
-      clientName: 'Juan Pérez',
-      serviceType: 'Electricidad',
-      serviceName: 'Cortocircuito',
-      date: DateTime.now().add(const Duration(days: 2)),
-      address: 'Calle 123 # 45-67',
-      price: 60000,
-      status: BookingStatus.pendiente,
-      providerName: 'Electricistas Ya',
-    ),
-  ];
-
-  List<String> get _availableServiceTypes {
-    return _allRequests.map((e) => e.serviceType).toSet().toList();
+  @override
+  void initState() {
+    super.initState();
+    _vm = locator<BookingViewModel>();
+    _vm.addListener(_onChanged);
+    _load();
   }
 
+  @override
+  void dispose() {
+    _vm.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _load() async {
+    final authRepo = locator<AuthRepository>();
+    final res = await authRepo.getCurrentClienteId();
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      setState(() => _clienteId = res.data);
+      await _vm.loadClientBookings(res.data!);
+    } else {
+      setState(() => _clienteId = null);
+      _vm.setError(res.message.isNotEmpty ? res.message : 'No se pudo verificar tu ID de cliente. Contacta a soporte.');
+    }
+  }
+
+  Future<void> _showCancelDialog(BookingModel booking) async {
+    final reasonController = TextEditingController();
+    final res = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancelar solicitud'),
+        content: TextField(
+          controller: reasonController,
+          maxLines: 3,
+          decoration: const InputDecoration(labelText: 'Motivo'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Volver')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, reasonController.text.trim()),
+            style: ElevatedButton.styleFrom(backgroundColor: errorRed),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    final reason = (res ?? '').trim();
+    if (reason.isEmpty) return;
+    final clienteId = _clienteId;
+    if (clienteId == null) return;
+    final result = await _vm.cancel(booking.id, clienteId, reason);
+    if (!mounted) return;
+    _showNotification(result.success ? 'Solicitud cancelada' : result.message, isError: !result.success);
+  }
+
+  List<String> get _availableServiceTypes {
+    return _pendingRequests.map((e) => e.serviceType).toSet().toList();
+  }
+
+  List<BookingModel> get _pendingRequests =>
+      _vm.bookings.where((b) => b.status == BookingStatus.pendiente).toList();
+
   List<BookingModel> get _filteredRequests {
-    var list = _allRequests.where((req) {
+    var list = _pendingRequests.where((req) {
       bool typeMatch = _selectedServiceTypes.isEmpty || _selectedServiceTypes.contains(req.serviceType);
       return typeMatch;
     }).toList();
@@ -195,7 +234,7 @@ class _ClientRequestsScreenState extends State<ClientRequestsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: cardShadow, blurRadius: 8)],
+        boxShadow: const [BoxShadow(color: cardShadow, blurRadius: 8)],
       ),
       child: Material(
         color: Colors.transparent,
@@ -253,8 +292,7 @@ class _ClientRequestsScreenState extends State<ClientRequestsScreen> {
                     ),
                     OutlinedButton(
                       onPressed: () {
-                        // Lógica de cancelación de solicitud
-                        _showNotification('Solicitud cancelada');
+                        _showCancelDialog(request);
                       },
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: errorRed),
@@ -273,6 +311,34 @@ class _ClientRequestsScreenState extends State<ClientRequestsScreen> {
   }
 
   Widget _buildEmptyState() {
+    if (_vm.isBusy) {
+      return const Center(child: CircularProgressIndicator(color: primaryBlue));
+    }
+    final err = _vm.error;
+    if (err != null && err.isNotEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline_rounded, size: 80, color: errorRed),
+              const SizedBox(height: 16),
+              Text(err, textAlign: TextAlign.center, style: const TextStyle(color: textGray)),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: 200,
+                child: ElevatedButton(
+                  onPressed: _load,
+                  style: ElevatedButton.styleFrom(backgroundColor: primaryBlue),
+                  child: const Text('Reintentar', style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

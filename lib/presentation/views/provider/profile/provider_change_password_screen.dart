@@ -1,13 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:servizone_app/core/locator.dart';
 import 'package:servizone_app/data/providers/auth_service.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
-import 'package:servizone_app/presentation/views/provider/provider_bookings_screen.dart';
-import 'package:servizone_app/presentation/views/provider/services/provider_services_screen.dart';
-import 'package:servizone_app/presentation/views/provider/provider_home_screen.dart';
-import 'package:servizone_app/presentation/views/provider/profile/provider_profile_screen.dart';
-import 'package:servizone_app/core/routes/app_routes.dart'; 
 
 class ProviderChangePasswordScreen extends StatefulWidget {
   const ProviderChangePasswordScreen({super.key});
@@ -24,7 +18,6 @@ class _ProviderChangePasswordScreenState extends State<ProviderChangePasswordScr
 
   String _userName = 'Usuario';
   bool _isLoading = false;
-  int _currentIndex = 3;
 
   bool _obscureCurrent = true;
   bool _obscureNew = true;
@@ -148,13 +141,6 @@ class _ProviderChangePasswordScreenState extends State<ProviderChangePasswordScr
     }
   }
 
-  Future<void> _logout() async {
-    await locator<AuthService>().logout();
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, AppRoutes.login);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -191,7 +177,7 @@ class _ProviderChangePasswordScreenState extends State<ProviderChangePasswordScr
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      '$_userName',
+                      _userName,
                       style: const TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 18,
@@ -256,7 +242,7 @@ class _ProviderChangePasswordScreenState extends State<ProviderChangePasswordScr
                                 color: Colors.grey[700],
                               ),
                               const SizedBox(width: 8),
-                              Text(
+                              const Text(
                                 'Cambiar contraseña',
                                 style: TextStyle(
                                   fontFamily: 'Poppins',
@@ -270,7 +256,7 @@ class _ProviderChangePasswordScreenState extends State<ProviderChangePasswordScr
                           const SizedBox(height: 24),
 
                           // Contraseña actual
-                          Text(
+                          const Text(
                             'Contraseña actual',
                             style: TextStyle(
                               fontFamily: 'Roboto',
@@ -288,7 +274,7 @@ class _ProviderChangePasswordScreenState extends State<ProviderChangePasswordScr
                           const SizedBox(height: 20),
 
                           // Contraseña nueva
-                          Text(
+                          const Text(
                             'Contraseña nueva',
                             style: TextStyle(
                               fontFamily: 'Roboto',
@@ -306,7 +292,7 @@ class _ProviderChangePasswordScreenState extends State<ProviderChangePasswordScr
                           const SizedBox(height: 20),
 
                           // Confirmar contraseña
-                          Text(
+                          const Text(
                             'Confirmar contraseña',
                             style: TextStyle(
                               fontFamily: 'Roboto',
@@ -430,7 +416,7 @@ class _ProviderChangePasswordScreenState extends State<ProviderChangePasswordScr
             onPressed: onToggle,
           ),
           hintText: '********',
-          hintStyle: TextStyle(
+          hintStyle: const TextStyle(
             fontFamily: 'Roboto',
             fontSize: 14,
             color: textGray,

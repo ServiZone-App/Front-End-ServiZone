@@ -80,7 +80,7 @@ class _SupportCenterScreenState extends State<SupportCenterScreen>
     switch (action) {
       case 'email': _copyToClipboard(value); break;
       case 'phone': case 'whatsapp': _copyToClipboard(value); break;
-      case 'chat': ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Abriendo chat en vivo...'), backgroundColor: primaryBlue, behavior: SnackBarBehavior.floating)); break;
+      case 'chat': ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Abriendo chat en vivo...'), backgroundColor: primaryBlue, behavior: SnackBarBehavior.floating)); break;
     }
   }
 
@@ -124,7 +124,7 @@ class _SupportCenterScreenState extends State<SupportCenterScreen>
   Widget _buildContactCard(Map<String, dynamic> contact) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: cardShadow, blurRadius: 10)]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: cardShadow, blurRadius: 10)]),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -151,7 +151,7 @@ class _SupportCenterScreenState extends State<SupportCenterScreen>
                     ],
                   ),
                 ),
-                Icon(Icons.content_copy_rounded, color: textGray),
+                const Icon(Icons.content_copy_rounded, color: textGray),
               ],
             ),
           ),
@@ -163,7 +163,7 @@ class _SupportCenterScreenState extends State<SupportCenterScreen>
   Widget _buildDocumentationCard(Map<String, dynamic> doc) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: cardShadow, blurRadius: 10)]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: cardShadow, blurRadius: 10)]),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -193,7 +193,7 @@ class _SupportCenterScreenState extends State<SupportCenterScreen>
                     ],
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios_rounded, color: textGray, size: 16),
+                const Icon(Icons.arrow_forward_ios_rounded, color: textGray, size: 16),
               ],
             ),
           ),
@@ -205,7 +205,7 @@ class _SupportCenterScreenState extends State<SupportCenterScreen>
   Widget _buildToolCard(Map<String, dynamic> tool) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: cardShadow, blurRadius: 10)]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: cardShadow, blurRadius: 10)]),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -260,7 +260,7 @@ class _SupportCenterScreenState extends State<SupportCenterScreen>
           final stat = statsItems[index];
           return Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: cardShadow, blurRadius: 10)]),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: cardShadow, blurRadius: 10)]),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -325,7 +325,7 @@ class _SupportCenterScreenState extends State<SupportCenterScreen>
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(color: primaryBlue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                    child: Icon(Icons.support_agent_rounded, color: primaryBlue),
+                    child: const Icon(Icons.support_agent_rounded, color: primaryBlue),
                   ),
                   const SizedBox(width: 16),
                   const Text('Centro de Soporte', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkGray)),
@@ -333,8 +333,8 @@ class _SupportCenterScreenState extends State<SupportCenterScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
-                    child: Row(
-                      children: const [
+                    child: const Row(
+                      children: [
                         CircleAvatar(radius: 4, backgroundColor: Colors.green),
                         SizedBox(width: 8),
                         Text('En Línea', style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w600)),

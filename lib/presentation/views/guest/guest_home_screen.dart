@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
+import 'package:servizone_app/core/locator.dart';
 import 'package:servizone_app/core/routes/app_routes.dart';
+import 'package:servizone_app/core/utils/catalog_visuals.dart';
+import 'package:servizone_app/data/models/catalog/categoria_model.dart';
+import 'package:servizone_app/data/providers/catalog_notifier.dart';
 import 'package:servizone_app/presentation/views/client/services/subcategory_screen.dart';
 
 class GuestHomeScreen extends StatefulWidget {
@@ -13,63 +17,12 @@ class GuestHomeScreen extends StatefulWidget {
 
 class _GuestHomeScreenState extends State<GuestHomeScreen>
     with SingleTickerProviderStateMixin {
-  int _currentIndex = 1; // Por defecto en Servicios
+  int _currentIndex = 1;
   String searchQuery = "";
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
-
-  // Mismas categorías que el cliente
-  final List<Map<String, dynamic>> categories = [
-    {
-      "title": "Servi Favor",
-      "subtitle": "Favores personales",
-      "icon": Icons.handshake_rounded,
-      "color": primaryBlue,
-      "gradient": [const Color(0xFF1A237E), const Color(0xFF3F51B5)],
-      "keywords": ["mandados", "diligencias", "compras", "favor", "ayuda", "personal", "rápido"],
-    },
-    {
-      "title": "Hogar",
-      "subtitle": "Limpieza y mantenimiento",
-      "icon": Icons.home_rounded,
-      "color": const Color(0xFF2E7D32),
-      "gradient": [const Color(0xFF2E7D32), const Color(0xFF4CAF50)],
-      "keywords": ["limpieza", "plomería", "electricidad", "carpintería", "pintura", "reparación", "mantenimiento", "casa", "aseo", "arreglos"],
-    },
-    {
-      "title": "Ciclismo",
-      "subtitle": "Reparación y servicios",
-      "icon": Icons.directions_bike_rounded,
-      "color": const Color(0xFFE65100),
-      "gradient": [const Color(0xFFE65100), const Color(0xFFFF9800)],
-      "keywords": ["bicicleta", "bici", "reparación", "mantenimiento", "llanta", "frenos", "cadena", "taller", "mecánica"],
-    },
-    {
-      "title": "Cuidado",
-      "subtitle": "Cuidado de personas",
-      "icon": Icons.favorite_rounded,
-      "color": const Color(0xFFC2185B),
-      "gradient": [const Color(0xFFC2185B), const Color(0xFFE91E63)],
-      "keywords": ["niñera", "ancianos", "enfermera", "enfermería", "cuidado", "acompañamiento", "salud", "niños", "adulto mayor"],
-    },
-    {
-      "title": "Cuidado Personal",
-      "subtitle": "Belleza y bienestar",
-      "icon": Icons.spa_rounded,
-      "color": const Color(0xFF7B1FA2),
-      "gradient": [const Color(0xFF7B1FA2), const Color(0xFF9C27B0)],
-      "keywords": ["belleza", "spa", "masaje", "corte", "cabello", "maquillaje", "uñas", "manicure", "pedicure", "barbería", "peluquería", "estética"],
-    },
-    {
-      "title": "Mascotas",
-      "subtitle": "Cuidado animal",
-      "icon": Icons.pets_rounded,
-      "color": const Color(0xFFD32F2F),
-      "gradient": [const Color(0xFFD32F2F), const Color(0xFFF44336)],
-      "keywords": ["perros", "gatos", "paseo", "veterinario", "baño", "peluquería", "animales", "cuidado", "adiestramiento"],
-    },
-  ];
+  late final CatalogNotifier _catalogNotifier;
 
   @override
   void initState() {
@@ -82,12 +35,21 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
     _fadeController.forward();
+    // Compartir singleton con HomeClientScreen — sin segunda llamada HTTP
+    _catalogNotifier = locator<CatalogNotifier>();
+    _catalogNotifier.addListener(_onCatalogChanged);
+    _catalogNotifier.loadCategorias();
   }
 
   @override
   void dispose() {
+    _catalogNotifier.removeListener(_onCatalogChanged);
     _fadeController.dispose();
     super.dispose();
+  }
+
+  void _onCatalogChanged() {
+    if (mounted) setState(() {});
   }
 
   // Muestra un diálogo para iniciar sesión (usado en acciones que no son botones directos)
@@ -133,13 +95,13 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
 
   Widget _buildBottomNavigationBar() {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: cardShadow,
             blurRadius: 20,
-            offset: const Offset(0, -4),
+            offset: Offset(0, -4),
           ),
         ],
       ),
@@ -239,15 +201,15 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
     );
   }
 
-  // Pantalla Servicios (solo visual, acciones bloqueadas)
   Widget _buildSolicitudScreen() {
-    final filteredCategories = categories.where((category) {
-      final query = searchQuery.toLowerCase();
-      final titleMatch = category["title"].toLowerCase().contains(query);
-      final subtitleMatch = category["subtitle"].toLowerCase().contains(query);
-      final keywords = (category["keywords"] as List<String>?) ?? [];
-      final keywordMatch = keywords.any((k) => k.toLowerCase().contains(query));
-      return titleMatch || subtitleMatch || keywordMatch;
+    final state = _catalogNotifier.categoriasState;
+    final categorias = _catalogNotifier.categorias;
+
+    final filtered = categorias.where((cat) {
+      final q = searchQuery.toLowerCase();
+      if (q.isEmpty) return true;
+      return cat.nombre.toLowerCase().contains(q) ||
+          (cat.descripcion?.toLowerCase().contains(q) ?? false);
     }).toList();
 
     return Scaffold(
@@ -268,20 +230,14 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
                       const SizedBox(height: 40),
                       RichText(
                         text: const TextSpan(
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                          ),
+                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
                           children: [
                             TextSpan(text: "Servi", style: TextStyle(color: primaryBlue)),
                             TextSpan(text: "Zone", style: TextStyle(color: darkGray)),
                           ],
                         ),
                       ),
-                      const Text(
-                        'Explora como invitado',
-                        style: TextStyle(color: textGray),
-                      ),
+                      const Text('Explora como invitado', style: TextStyle(color: textGray)),
                     ],
                   ),
                 ),
@@ -295,16 +251,12 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
                     children: [
                       Icon(Icons.notifications_none_rounded, color: darkGray),
                       Positioned(
-                        right: 0,
-                        top: 0,
-                        child: CircleAvatar(
-                          radius: 4,
-                          backgroundColor: Colors.red,
-                        ),
+                        right: 0, top: 0,
+                        child: CircleAvatar(radius: 4, backgroundColor: Colors.red),
                       ),
                     ],
                   ),
-                  onPressed: _showLoginRequiredDialog, // Diálogo
+                  onPressed: _showLoginRequiredDialog,
                 ),
               ),
             ],
@@ -316,22 +268,19 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 20),
                   child: InkWell(
-                    onTap: _showLoginRequiredDialog, // Diálogo
+                    onTap: _showLoginRequiredDialog,
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
-                          BoxShadow(color: cardShadow, blurRadius: 8),
-                        ],
+                        boxShadow: const [BoxShadow(color: cardShadow, blurRadius: 8)],
                       ),
                       child: Row(
                         children: [
                           Container(
-                            width: 40,
-                            height: 40,
+                            width: 40, height: 40,
                             decoration: BoxDecoration(
                               color: primaryBlue.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
@@ -343,18 +292,9 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Agregar dirección',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: darkGray,
-                                  ),
-                                ),
+                                Text('Agregar dirección', style: TextStyle(fontWeight: FontWeight.w600, color: darkGray)),
                                 SizedBox(height: 2),
-                                Text(
-                                  'Inicia sesión para agregar',
-                                  style: TextStyle(color: textGray, fontSize: 12),
-                                ),
+                                Text('Inicia sesión para agregar', style: TextStyle(color: textGray, fontSize: 12)),
                               ],
                             ),
                           ),
@@ -386,23 +326,15 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
                   ),
                 ),
                 const SizedBox(height: 32),
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Row(
                     children: [
-                      const Text(
-                        'Categorías de Servicios',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: darkGray,
-                        ),
-                      ),
+                      const Text('Categorías de Servicios',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkGray)),
                       const Spacer(),
-                      Text(
-                        '${filteredCategories.length} servicios',
-                        style: const TextStyle(color: textGray),
-                      ),
+                      Text('${filtered.length} categorías',
+                          style: const TextStyle(color: textGray)),
                     ],
                   ),
                 ),
@@ -410,29 +342,64 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
               ],
             ),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.85,
+          // — Estados: loading / error / grid —
+          if (state == CatalogLoadState.loading)
+            const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator(color: primaryBlue)),
+            )
+          else if (state == CatalogLoadState.error)
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.cloud_off_rounded, size: 64, color: textGray),
+                    const SizedBox(height: 12),
+                    Text(_catalogNotifier.categoriasError,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: textGray)),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Reintentar'),
+                      onPressed: _catalogNotifier.retryCategorias,
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryBlue, foregroundColor: Colors.white),
+                    ),
+                  ],
+                ),
               ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _buildCategoryCard(filteredCategories[index]),
-                childCount: filteredCategories.length,
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.85,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _buildCategoryCard(filtered[index]),
+                  childCount: filtered.length,
+                ),
               ),
             ),
-          ),
           const SliverToBoxAdapter(child: SizedBox(height: 32)),
         ],
       ),
     );
   }
 
-  // Tarjeta de categoría con navegación permitida para invitados
-  Widget _buildCategoryCard(Map<String, dynamic> category) {
+  Widget _buildCategoryCard(Categoria categoria) {
+    final gradient = CatalogVisuals.categoryGradient(categoria.nombre);
+    final icon = CatalogVisuals.categoryIcon(categoria.nombre);
+    final color = CatalogVisuals.categoryColor(categoria.nombre);
+    final subtitle = CatalogVisuals.categorySubtitle(
+      categoria.nombre,
+      fallback: categoria.descripcion ?? '',
+    );
     return GestureDetector(
       onTap: () {
         HapticFeedback.mediumImpact();
@@ -440,7 +407,8 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
           context,
           MaterialPageRoute(
             builder: (context) => SubcategoryScreen(
-              categoryName: category["title"],
+              categoryName: categoria.nombre,
+              categoriaId: categoria.id,
               isGuest: true,
             ),
           ),
@@ -448,11 +416,11 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
       },
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(colors: category["gradient"]),
+          gradient: LinearGradient(colors: gradient),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: (category["color"] as Color).withValues(alpha: 0.3),
+              color: color.withValues(alpha: 0.3),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -470,16 +438,16 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(category["icon"], color: Colors.white),
+                child: Icon(icon, color: Colors.white),
               ),
               const Spacer(),
               Text(
-                category["title"],
+                categoria.nombre,
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               const SizedBox(height: 4),
               Text(
-                category["subtitle"],
+                subtitle,
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
               ),
             ],

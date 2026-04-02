@@ -145,7 +145,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      '$_userName',
+                      _userName,
                       style: const TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 18,

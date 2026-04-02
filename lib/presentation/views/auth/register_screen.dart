@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
 import 'package:servizone_app/core/routes/app_routes.dart';
 import 'package:servizone_app/core/locator.dart';
 import 'package:servizone_app/data/providers/auth_service.dart';
-import 'package:servizone_app/core/routes/app_routes.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -103,12 +101,12 @@ class _RegisterScreenState extends State<RegisterScreen>
     });
 
     final result = await locator<AuthService>().register({
-      "Nombre": _nombres.text.trim(),
-      "Apellido": _apellidos.text.trim(), // backend espera Apellido en vez de Apellidos? El prompt original dice "(Nombre, Apellido, Documento, Celular, Correo, Contrasena)"
-      "Documento": _documento.text.trim(),
-      "Celular": _celular.text.trim(),
-      "Correo": _correo.text.trim(),
-      "Contrasena": _pass.text.trim(),
+      "nombre": _nombres.text.trim(),
+      "apellido": _apellidos.text.trim(),
+      "documento": _documento.text.trim(),
+      "celular": _celular.text.trim(),
+      "correo": _correo.text.trim(),
+      "contrasena": _pass.text.trim(),
     });
 
     if (result['success'] == true) {
@@ -345,7 +343,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              Text(
+                              const Text(
                                 'Regístrate para comenzar',
                                 style: TextStyle(
                                   fontSize: 16,
@@ -471,7 +469,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                   Navigator.pushReplacementNamed(context, AppRoutes.login);
                                 },
                                 child: RichText(
-                                  text: TextSpan(
+                                  text: const TextSpan(
                                     text: '¿Ya tienes cuenta? ',
                                     style: TextStyle(
                                       color: textGray,
@@ -493,7 +491,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                               const SizedBox(height: 16),
 
                               // Términos legales
-                              Text(
+                              const Text(
                                 'Al registrarte, aceptas nuestros Términos de servicio y Política de privacidad',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(

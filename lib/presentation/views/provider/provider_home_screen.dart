@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:servizone_app/core/locator.dart';
 import 'package:servizone_app/data/providers/auth_service.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
-import 'package:servizone_app/presentation/views/provider/profile/provider_profile_screen.dart';
-import 'package:servizone_app/core/routes/app_routes.dart';
 import 'package:servizone_app/presentation/views/provider/services/provider_services_screen.dart';
 import 'package:servizone_app/presentation/views/provider/provider_bookings_screen.dart';
 import 'package:servizone_app/presentation/widgets/shared/provider_bottom_nav.dart';
 import 'package:servizone_app/presentation/widgets/provider/create_service_bottom_sheet.dart';
+import 'package:servizone_app/data/providers/catalog_notifier.dart';
+import 'package:servizone_app/data/models/catalog/servicio_proveedor_model.dart';
 
 class ProviderHomeScreen extends StatefulWidget {
   const ProviderHomeScreen({super.key});
@@ -19,226 +18,250 @@ class ProviderHomeScreen extends StatefulWidget {
 }
 
 class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
+  late final CatalogNotifier _notifier;
   String _userName = 'Usuario';
-  int _currentIndex = 0; // 0: Inicio
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadUserName();
+    _notifier = locator<CatalogNotifier>();
+    _notifier.addListener(_onChanged);
+    _loadProviderData();
   }
 
-  void _loadUserName() {
-    final data = locator<AuthService>().currentUserProfile;
-    if (data != null && mounted) {
+  @override
+  void dispose() {
+    _notifier.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadProviderData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final auth = locator<AuthService>();
+    final data = auth.currentUserProfile;
+    if (data == null) {
       setState(() {
-        _userName = data['nombre'] ?? data['Nombre'] ?? 'Usuario Proveedor';
+        _errorMessage = 'No se pudo cargar el perfil del proveedor. Intenta reiniciar sesión.';
+        _isLoading = false;
       });
+      return;
     }
-  }
 
-  Future<void> _logout() async {
-    await locator<AuthService>().logout();
-    if (mounted) {
-      Navigator.pushNamedAndRemoveUntil(context, AppRoutes.login, (route) => false);
-    }
-  }
+    final name = "${data['nombre'] ?? data['Nombre'] ?? ''} ${data['apellido'] ?? data['Apellido'] ?? ''}".trim();
+    setState(() {
+      _userName = name.isNotEmpty ? name : 'Usuario Proveedor';
+      _isLoading = false;
+    });
 
-  final List<Map<String, dynamic>> services = [
-    {
-      'name': 'Servicio de ejemplo 1',
-      'price': 45000,
-      'status': 'Activo',
-    },
-    {
-      'name': 'Servicio de ejemplo 1',
-      'price': 45000,
-      'status': 'Inactivo',
-    },
-    {
-      'name': 'Servicio de ejemplo 1',
-      'price': 45000,
-      'status': 'Activo',
-    },
-  ];
+    _notifier.loadServiciosDelProveedor(0);
+  }
 
   void _showCreateServiceDialog() {
-    CreateServiceBottomSheet.show(context, onServiceCreated: (newService) {
-      if (mounted) {
-        setState(() {
-          services.add(newService);
-        });
-      }
-    });
+    CreateServiceBottomSheet.show(
+      context,
+      onServiceCreated: () {
+        if (mounted) {
+          _notifier.retryServiciosDelProveedor(0);
+        }
+      },
+    );
   }
-
-  final List<Map<String, dynamic>> bookings = const [
-    {
-      'client': 'Ana García',
-      'date': '15 marzo 2026',
-      'time': '10:30',
-      'status': 'Confirmada',
-    },
-    {
-      'client': 'Carlos Ruiz',
-      'date': '16 marzo 2026',
-      'time': '11:00',
-      'status': 'Pendiente',
-    },
-    {
-      'client': 'María López',
-      'date': '17 marzo 2026',
-      'time': '14:45',
-      'status': 'Cancelada',
-    },
-  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F1F1),
-      body: SingleChildScrollView(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: primaryBlue))
+          : _errorMessage != null
+              ? _buildErrorState()
+              : _buildContent(),
+      bottomNavigationBar: const ProviderBottomNav(currentIndex: 0),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // ✅ Contenedor de bienvenida: fondo blanco, ocupa todo el ancho
-            Container(
-              width: double.infinity,
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-              child: Text(
-                'Bienvenido, $_userName!',
-                style: Theme.of(context).textTheme.displayMedium,
-              ),
+            const Icon(Icons.error_outline, color: errorRed, size: 60),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16, color: textGray),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 12),
-                  const Divider(color: lightGray, thickness: 1),
-                  const SizedBox(height: 20),
-
-                  // Tarjeta de métricas
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildMetric(
-                          icon: Icons.star_rounded,
-                          iconColor: Colors.amber,
-                          value: '4.8',
-                          label: 'Calificación promedio',
-                        ),
-                        _buildVerticalDivider(),
-                        _buildMetric(
-                          icon: Icons.calendar_today_rounded,
-                          iconColor: const Color(0xFF1976D2),
-                          value: '12',
-                          label: 'Reservas del mes',
-                        ),
-                        _buildVerticalDivider(),
-                        _buildMetric(
-                          icon: Icons.attach_money_rounded,
-                          iconColor: const Color(0xFF2E7D32),
-                          value: '\$200,000',
-                          label: 'Ingresos',
-                        ),
-                        _buildVerticalDivider(),
-                        _buildMetric(
-                          icon: Icons.build_rounded,
-                          iconColor: const Color(0xFF1976D2),
-                          value: '3',
-                          label: 'Servicios activos',
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Botón Crear nuevo servicio
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      onPressed: _showCreateServiceDialog,
-                      icon: const Icon(Icons.add, color: Colors.white),
-                      label: const Text(
-                        'Crear Nuevo Servicio',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryBlue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  _buildSectionTitle('Tus servicios'),
-                  const SizedBox(height: 12),
-
-                  ...services.map((service) => _buildServiceCard(service)),
-
-                  const SizedBox(height: 8),
-                  Center(
-                  child: TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ProviderServicesScreen(),
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      'Ver todos mis servicios >',
-                      style: TextStyle(
-                        fontFamily: 'Roboto',
-                        fontSize: 14,
-                        color: textGray,
-                      ),
-                    ),
-                  ),
-                ),
-                  const SizedBox(height: 32),
-
-                  _buildSectionTitle('Proximas reservas'),
-                  const SizedBox(height: 12),
-
-                  ...bookings.map((booking) => _buildBookingCard(booking)),
-
-                  const SizedBox(height: 30),
-                ],
-              ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.refresh, color: Colors.white),
+              label: const Text('Reintentar', style: TextStyle(color: Colors.white)),
+              onPressed: _loadProviderData,
+              style: ElevatedButton.styleFrom(backgroundColor: primaryBlue),
             ),
           ],
         ),
       ),
-      bottomNavigationBar: const ProviderBottomNav(currentIndex: 0),
+    );
+  }
+
+  Widget _buildContent() {
+    final services = _notifier.serviciosProveedor;
+    final double? avgRating = services.isEmpty
+        ? null
+        : services.map((s) => s.ratingMedia).fold<double>(0.0, (a, b) => a + b) /
+            services.length;
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ✅ Contenedor de bienvenida: fondo blanco, ocupa todo el ancho
+          Container(
+            width: double.infinity,
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            child: Text(
+              'Bienvenido, $_userName!',
+              style: Theme.of(context).textTheme.displayMedium,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 12),
+                const Divider(color: lightGray, thickness: 1),
+                const SizedBox(height: 20),
+
+                // Tarjeta de métricas
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildMetric(
+                        icon: Icons.star_rounded,
+                        iconColor: Colors.amber,
+                        value: avgRating == null ? '—' : avgRating.toStringAsFixed(1),
+                        label: 'Calificación promedio',
+                      ),
+                      _buildVerticalDivider(),
+                      _buildMetric(
+                        icon: Icons.calendar_today_rounded,
+                        iconColor: const Color(0xFF1976D2),
+                        value: '—',
+                        label: 'Reservas del mes',
+                      ),
+                      _buildVerticalDivider(),
+                      _buildMetric(
+                        icon: Icons.attach_money_rounded,
+                        iconColor: const Color(0xFF2E7D32),
+                        value: '—',
+                        label: 'Ingresos',
+                      ),
+                      _buildVerticalDivider(),
+                       _buildMetric(
+                        icon: Icons.build_rounded,
+                        iconColor: const Color(0xFF1976D2),
+                        value: '${services.where((s) => s.estado).length}',
+                        label: 'Servicios activos',
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Botón Crear nuevo servicio
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: _showCreateServiceDialog,
+                    icon: const Icon(Icons.add, color: Colors.white),
+                    label: const Text(
+                      'Crear Nuevo Servicio',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryBlue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 2,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                 _buildSectionTitle('Tus servicios'),
+                const SizedBox(height: 12),
+
+                _buildServicesSection(),
+
+                const SizedBox(height: 8),
+                Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ProviderServicesScreen(),
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    'Ver todos mis servicios >',
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 14,
+                      color: textGray,
+                    ),
+                  ),
+                ),
+              ),
+                const SizedBox(height: 32),
+
+                _buildSectionTitle('Proximas reservas'),
+                const SizedBox(height: 12),
+                _buildNoUpcomingBookings(),
+
+                const SizedBox(height: 30),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -296,15 +319,111 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     );
   }
 
-  Widget _buildServiceCard(Map<String, dynamic> service) {
-    final bool isActive = service['status'] == 'Activo';
+  Widget _buildNoUpcomingBookings() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: primaryBlue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.event_busy_rounded, color: primaryBlue),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Sin reservas próximas',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Poppins',
+                      ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Cuando confirmes solicitudes, aquí verás tus próximas reservas.',
+            style: TextStyle(fontFamily: 'Roboto', fontSize: 13, color: textGray, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProviderBookingsScreen()),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: primaryBlue,
+                side: const BorderSide(color: primaryBlue),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: const Text('Ver reservas', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServicesSection() {
+    final state = _notifier.serviciosProveedorState;
+    final services = _notifier.serviciosProveedor;
+
+    if (state == CatalogLoadState.loading) {
+      return const Center(child: Padding(
+        padding: EdgeInsets.all(20),
+        child: CircularProgressIndicator(color: primaryBlue),
+      ));
+    }
+
+    if (services.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(30),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Column(
+          children: [
+            Icon(Icons.build_circle_outlined, size: 48, color: mediumGray),
+            SizedBox(height: 12),
+            Text('No tienes servicios registrados', style: TextStyle(color: textGray)),
+          ],
+        ),
+      );
+    }
+
+    // Mostrar solo los primeros 3
+    final recent = services.take(3).toList();
+    return Column(
+      children: recent.map((s) => _buildServiceCard(s)).toList(),
+    );
+  }
+
+  Widget _buildServiceCard(ServicioProveedor s) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: cardShadow, blurRadius: 10, offset: const Offset(0, 2))],
+        boxShadow: const [BoxShadow(color: cardShadow, blurRadius: 10, offset: Offset(0, 2))],
       ),
       child: Row(
         children: [
@@ -323,12 +442,12 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  service['name'],
+                  s.nombreMostrado,
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textGray),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '\$${NumberFormat('#,###').format(service['price'])}',
+                  '\$${NumberFormat('#,###').format(s.precioBase)}',
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryBlue),
                 ),
               ],
@@ -337,84 +456,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: isActive ? successGreen : errorRed,
+              color: s.estado ? successGreen : errorRed,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              service['status'],
-              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBookingCard(Map<String, dynamic> booking) {
-    String statusText = booking['status'] ?? 'Pendiente';
-    Color statusColor = switch (statusText) {
-      'Confirmada' => successGreen,
-      'Pendiente' => warningOrange,
-      'Cancelada' => errorRed,
-      _ => warningOrange,
-    };
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: cardShadow, blurRadius: 10, offset: const Offset(0, 2))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: statusColor,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Icon(Icons.calendar_today_rounded, size: 20, color: statusColor),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Cliente: ${booking['client']}',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textGray),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${booking['date']} - ${booking['time']}',
-                  style: const TextStyle(fontSize: 12, color: textGray),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusColor,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              statusText,
+              s.estado ? 'Activo' : 'Inactivo',
               style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
             ),
           ),
@@ -424,5 +470,3 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   }
 
 }
-
-

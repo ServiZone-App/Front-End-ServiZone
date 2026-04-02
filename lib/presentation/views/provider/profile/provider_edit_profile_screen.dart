@@ -1,13 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:servizone_app/core/locator.dart';
 import 'package:servizone_app/data/providers/auth_service.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
-import 'package:servizone_app/presentation/views/provider/provider_bookings_screen.dart';
-import 'package:servizone_app/presentation/views/provider/services/provider_services_screen.dart';
-import 'package:servizone_app/presentation/views/provider/provider_home_screen.dart';
-import 'package:servizone_app/presentation/views/provider/profile/provider_profile_screen.dart';
-import 'package:servizone_app/core/routes/app_routes.dart'; 
 
 class ProviderEditProfileScreen extends StatefulWidget {
   const ProviderEditProfileScreen({super.key});
@@ -30,11 +24,9 @@ class _ProviderEditProfileScreenState extends State<ProviderEditProfileScreen> {
   String _userPhone = '+57 300 000 0000';
   String _userDescription = 'Especialista en servicios del hogar con alta atención al detalle.';
   String _userExperience = '5';
-  String _userAdditionalReqs = 'Ninguno';
 
   bool _isLoading = false;
   bool _isEditing = false;
-  int _currentIndex = 3; // Cuenta activa
 
   bool _showSuccess = false;
   bool _showError = false;
@@ -126,13 +118,6 @@ class _ProviderEditProfileScreenState extends State<ProviderEditProfileScreen> {
           if (mounted) setState(() => _showError = false);
         });
       }
-    }
-  }
-
-  Future<void> _logout() async {
-    await locator<AuthService>().logout();
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, AppRoutes.login);
     }
   }
 

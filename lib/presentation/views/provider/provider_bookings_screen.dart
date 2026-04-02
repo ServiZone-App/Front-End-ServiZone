@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
 import 'package:servizone_app/data/models/booking_model.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:servizone_app/core/routes/app_routes.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:servizone_app/core/locator.dart';
-import 'package:servizone_app/core/services/provider_booking_service.dart';
 import 'package:servizone_app/presentation/widgets/shared/provider_bottom_nav.dart';
 import 'package:servizone_app/presentation/widgets/shared/status_badge.dart';
 import 'package:servizone_app/presentation/widgets/shared/booking_detail_sheet.dart';
+import 'package:servizone_app/domain/repositories/auth_repository.dart';
+import 'package:servizone_app/presentation/viewmodels/booking_view_model.dart';
 
 class ProviderBookingsScreen extends StatefulWidget {
   const ProviderBookingsScreen({super.key});
@@ -20,29 +18,44 @@ class ProviderBookingsScreen extends StatefulWidget {
 }
 
 class _ProviderBookingsScreenState extends State<ProviderBookingsScreen> {
-  final _bookingService = locator<ProviderBookingService>();
-  final String _currentProviderId = 'P1';
+  late final BookingViewModel _vm;
+  int? _proveedorId;
   final TextEditingController _searchController = TextEditingController();
 
-  int _monthsFilter = 1;
+  final int _monthsFilter = 1;
   BookingStatus? _statusFilter;
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _bookingService.addListener(_onServiceUpdate);
+    _vm = locator<BookingViewModel>();
+    _vm.addListener(_onServiceUpdate);
+    _load();
   }
 
   @override
   void dispose() {
-    _bookingService.removeListener(_onServiceUpdate);
+    _vm.removeListener(_onServiceUpdate);
     _searchController.dispose();
     super.dispose();
   }
 
   void _onServiceUpdate() {
     setState(() {});
+  }
+
+  Future<void> _load() async {
+    final authRepo = locator<AuthRepository>();
+    final res = await authRepo.getCurrentProveedorId();
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      setState(() => _proveedorId = res.data);
+      await _vm.loadProviderBookings(res.data!);
+    } else {
+      setState(() => _proveedorId = null);
+      _vm.setError(res.message.isNotEmpty ? res.message : 'No se pudo verificar tu ID de proveedor. Contacta a soporte.');
+    }
   }
 
   void _shareToWhatsApp(BookingModel booking) async {
@@ -58,12 +71,19 @@ class _ProviderBookingsScreenState extends State<ProviderBookingsScreen> {
   }
 
   List<BookingModel> get _allFilteredBookings {
-    return _bookingService.getProviderBookings(
-      _currentProviderId,
-      statusFilter: _statusFilter,
-      monthsFilter: _monthsFilter,
-      query: _searchQuery,
-    );
+    final now = DateTime.now();
+    final cutoff = now.subtract(Duration(days: 30 * _monthsFilter));
+    return _vm.bookings.where((b) {
+      final within = b.date.isAfter(cutoff);
+      if (!within) return false;
+      if (_statusFilter != null && b.status != _statusFilter) return false;
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        final hay = '${b.clientName} ${b.serviceName} ${b.address}'.toLowerCase();
+        if (!hay.contains(q)) return false;
+      }
+      return true;
+    }).toList();
   }
 
   void _showBookingDetails(BookingModel booking) {
@@ -84,7 +104,11 @@ class _ProviderBookingsScreenState extends State<ProviderBookingsScreen> {
               child: ElevatedButton(
                 onPressed: () {
                   try {
-                    _bookingService.completeBooking(booking.id, _currentProviderId);
+                    final proveedorId = _proveedorId;
+                    if (proveedorId == null) {
+                      throw Exception('No se pudo obtener el ID del proveedor.');
+                    }
+                    _vm.complete(booking.id, proveedorId);
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Servicio marcado como completado'), backgroundColor: successGreen));
                   } catch (e) {
@@ -125,6 +149,10 @@ class _ProviderBookingsScreenState extends State<ProviderBookingsScreen> {
           IconButton(
             icon: const Icon(Icons.menu_rounded),
             onPressed: _showFilterSheet,
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _load,
           ),
         ],
       ),
@@ -213,7 +241,7 @@ class _ProviderBookingsScreenState extends State<ProviderBookingsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: cardShadow, blurRadius: 10)],
+        boxShadow: const [BoxShadow(color: cardShadow, blurRadius: 10)],
       ),
       child: Material(
         color: Colors.transparent,

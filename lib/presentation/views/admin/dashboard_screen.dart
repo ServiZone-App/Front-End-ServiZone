@@ -11,6 +11,7 @@ import 'reports/reports_dashboard_screen.dart';
 import 'support/support_center_screen.dart';
 import 'settings/admin_settings_screen.dart';
 import 'category_management_screen.dart';
+import 'reports/audit_logs_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final String? userName;
@@ -23,22 +24,20 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     with TickerProviderStateMixin {
   late AnimationController _fadeController;
-  late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   String _displayName = 'Usuario';
   int _selected = 0;
-  bool _menuVisible = true;
 
   final List<_MenuItem> _items = const [
     _MenuItem('Gestión Usuarios', Icons.group_rounded, Color(0xFF2E7D32)),
     _MenuItem('Solicitudes Proveedores', Icons.person_add_rounded, purple),
     _MenuItem('Gestión Proveedores', Icons.business_rounded, Color(0xFFE65100)),
+    _MenuItem('Catálogo y Servicios', Icons.category_rounded, primaryBlue),
     _MenuItem('Reportes', Icons.analytics_rounded, Color(0xFFC2185B)),
-    _MenuItem('Gestión Servicios', Icons.category_rounded, primaryBlue),
+    _MenuItem('Logs de Auditoría', Icons.security_rounded, Colors.blueGrey),
     _MenuItem('Soporte', Icons.support_agent_rounded, Color(0xFFD32F2F)),
     _MenuItem('Configuración', Icons.settings_rounded, Color(0xFF455A64)),
   ];
@@ -47,8 +46,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     const UsersManagementScreen(),
     const ProviderRequestsScreen(),
     const ProvidersManagementScreen(),
-    const ReportsDashboardScreen(),
     const CategoryManagementScreen(),
+    const ReportsDashboardScreen(),
+    const AuditLogsScreen(),
     const SupportCenterScreen(),
     const AdminSettingsScreen(),
   ];
@@ -61,19 +61,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(-0.3, 0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
     _fadeController.forward();
-    _slideController.forward();
   }
 
   Future<void> _loadUserData() async {
@@ -112,21 +103,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   void dispose() {
     _fadeController.dispose();
-    _slideController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return LayoutBuilder(
       builder: (context, constraints) {
         bool isMobile = constraints.maxWidth < 768;
         bool isTablet = constraints.maxWidth >= 768 && constraints.maxWidth < 1024;
-        bool isDesktop = constraints.maxWidth >= 1024;
 
         return Scaffold(
-          key: _scaffoldKey, // Use the persistent key
-          backgroundColor: lightGray,
+          key: _scaffoldKey,
+          backgroundColor: isDark ? const Color(0xFF121212) : lightGray,
           drawer: isMobile ? _buildDrawer() : null,
           body: SafeArea(
             child: Row(
@@ -136,10 +126,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   child: Column(
                     children: [
                       _buildHeader(isMobile),
-                      Container(height: 1, color: Colors.grey.shade200),
+                      Container(height: 1, color: isDark ? Colors.white10 : Colors.grey.shade200),
                       Expanded(
                         child: Container(
-                          color: lightGray,
+                          color: isDark ? const Color(0xFF121212) : lightGray,
                           child: FadeTransition(
                             opacity: _fadeAnimation,
                             child: _screens[_selected],
@@ -158,12 +148,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   }
 
   Widget _buildSidebar(bool isCollapsed) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     double width = isCollapsed ? 80 : 280;
     return Container(
       width: width,
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: cardShadow, blurRadius: 20, offset: const Offset(4, 0))],
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        boxShadow: isDark ? null : [const BoxShadow(color: cardShadow, blurRadius: 20, offset: Offset(4, 0))],
+        border: isDark ? Border(right: BorderSide(color: Colors.white.withValues(alpha: 0.1))) : null,
       ),
       child: Column(
         children: [
@@ -184,8 +176,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       child: Container(
                         width: 72,
                         height: 72,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.admin_panel_settings_rounded, size: 40, color: purple),
@@ -194,7 +186,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   ),
                   const SizedBox(height: 16),
                   Text(_displayName,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkGray),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : darkGray),
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
                   Container(
@@ -206,7 +198,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               ),
             ),
             const SizedBox(height: 32),
-            Container(height: 1, margin: const EdgeInsets.symmetric(horizontal: 24), color: Colors.grey.shade200),
+            Container(height: 1, margin: const EdgeInsets.symmetric(horizontal: 24), color: isDark ? Colors.white10 : Colors.grey.shade200),
             const SizedBox(height: 24),
           ],
           Expanded(
@@ -229,7 +221,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       child: Container(
                         padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 0 : 16, vertical: 14),
                         decoration: BoxDecoration(
-                          color: selected ? primaryBlue.withValues(alpha: 0.1) : Colors.transparent,
+                          color: selected ? primaryBlue.withValues(alpha: isDark ? 0.2 : 0.1) : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -251,7 +243,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                   item.label,
                                   style: TextStyle(
                                     fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                                    color: selected ? primaryBlue : darkGray,
+                                    color: selected ? (isDark ? Colors.white : primaryBlue) : (isDark ? Colors.white70 : darkGray),
                                     fontSize: 15,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -310,9 +302,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   }
 
   Widget _buildHeader(bool isMobile) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: 80,
-      color: Colors.white,
+      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
@@ -335,7 +328,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 style: TextStyle(
                   fontSize: isMobile ? 20 : 24,
                   fontWeight: FontWeight.bold,
-                  color: darkGray,
+                  color: isDark ? Colors.white : darkGray,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -387,5 +380,4 @@ class _MenuItem {
   final Color color;
   const _MenuItem(this.label, this.icon, this.color);
 }
-
 

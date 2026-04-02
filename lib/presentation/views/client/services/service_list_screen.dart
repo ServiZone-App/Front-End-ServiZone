@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
+import 'package:servizone_app/core/locator.dart';
+import 'package:servizone_app/core/utils/catalog_visuals.dart';
+import 'package:servizone_app/data/models/catalog/servicio_proveedor_model.dart';
+import 'package:servizone_app/data/providers/catalog_notifier.dart';
 import 'package:servizone_app/presentation/views/client/services/service_detail_screen.dart';
 
 class ServiceListScreen extends StatefulWidget {
   final String categoryName;
   final String subcategoryName;
+  final int subcategoriaId; // id real del backend
   final bool isGuest;
 
   const ServiceListScreen({
     super.key,
     required this.categoryName,
     required this.subcategoryName,
+    required this.subcategoriaId,
     this.isGuest = false,
   });
 
@@ -22,133 +28,77 @@ class ServiceListScreen extends StatefulWidget {
 class _ServiceListScreenState extends State<ServiceListScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  String _selectedSort = 'rating'; // 'rating', 'price_desc', 'price_asc'
-  final Set<String> _selectedTypes = {};
+  String _selectedSort = 'price_asc'; // Sin rating — usar precio por defecto
+  String? _selectedTipoNombre; // Tipo seleccionado para filtrar
+  int? _selectedTipoId;
 
-  // Estados para los modales de éxito/error
-  bool _isLoading = false;
+  late final CatalogNotifier _notifier;
 
-  final Map<String, List<Map<String, dynamic>>> _servicesBySubcategory = {
-    'Plomería': [
-      {
-        'name': 'Reparación de fugas',
-        'professional': 'Carlos Ramírez',
-        'description': 'Reparación rápida de fugas en tuberías, lavamanos o conexiones domésticas.',
-        'price': 45000,
-        'rating': 4.5,
-        'type': 'Reparación',
-        'iconColor': const Color(0xFF4FA3D1),
-        'icon': Icons.plumbing,
-      },
-      {
-        'name': 'Instalación de grifería',
-        'professional': 'Luis Mendoza',
-        'description': 'Instalación profesional de grifos, duchas y accesorios de baño.',
-        'price': 60000,
-        'rating': 3.8,
-        'type': 'Instalación',
-        'iconColor': const Color(0xFF58C58F),
-        'icon': Icons.build,
-      },
-      {
-        'name': 'Destape de tuberías',
-        'professional': 'Andrés López',
-        'description': 'Servicio rápido para desatascar drenajes y tuberías del hogar.',
-        'price': 50000,
-        'rating': 4.2,
-        'type': 'Emergencia',
-        'iconColor': const Color(0xFFF5A623),
-        'icon': Icons.cleaning_services,
-      },
-      {
-        'name': 'Mantenimiento de cañerías',
-        'professional': 'María González',
-        'description': 'Revisión y mantenimiento preventivo de todo el sistema hidráulico.',
-        'price': 35000,
-        'rating': 4.7,
-        'type': 'Mantenimiento',
-        'iconColor': primaryBlue,
-        'icon': Icons.water_drop,
-      },
-      {
-        'name': 'Limpieza de desagües',
-        'professional': 'Pedro Sánchez',
-        'description': 'Limpieza profunda de desagües y eliminación de malos olores.',
-        'price': 40000,
-        'rating': 4.0,
-        'type': 'Limpieza',
-        'iconColor': Colors.teal,
-        'icon': Icons.clean_hands,
-      },
-    ],
-    'Electricidad': [
-      {
-        'name': 'Instalación eléctrica',
-        'professional': 'Juan Pérez',
-        'description': 'Instalación de puntos eléctricos, tableros y circuitos.',
-        'price': 80000,
-        'rating': 4.8,
-        'type': 'Instalación',
-        'iconColor': const Color(0xFFF5A623),
-        'icon': Icons.electrical_services,
-      },
-      {
-        'name': 'Reparación de cortocircuitos',
-        'professional': 'Ana Gómez',
-        'description': 'Diagnóstico y reparación de fallas eléctricas.',
-        'price': 55000,
-        'rating': 4.3,
-        'type': 'Reparación',
-        'iconColor': Colors.orange,
-        'icon': Icons.build,
-      },
-    ],
-    'Carpintería': [
-      {
-        'name': 'Fabricación de muebles',
-        'professional': 'Roberto Sánchez',
-        'description': 'Diseño y construcción de muebles a medida.',
-        'price': 120000,
-        'rating': 4.9,
-        'type': 'Mantenimiento',
-        'iconColor': const Color(0xFF8B5A2B),
-        'icon': Icons.handyman,
-      },
-    ],
-  };
-
-  List<Map<String, dynamic>> get _allServices {
-    return _servicesBySubcategory[widget.subcategoryName] ?? [];
-  }
-
-  List<String> get _availableTypes {
-    return _allServices.map((s) => s['type'] as String).toSet().toList();
-  }
-
-  List<Map<String, dynamic>> get _filteredServices {
-    var filtered = _allServices.where((s) {
-      return s['name'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          s['professional'].toLowerCase().contains(_searchQuery.toLowerCase());
-    }).toList();
-
-    if (_selectedTypes.isNotEmpty) {
-      filtered = filtered.where((s) => _selectedTypes.contains(s['type'])).toList();
-    }
-
-    if (_selectedSort == 'rating') {
-      filtered.sort((a, b) => b['rating'].compareTo(a['rating']));
-    } else if (_selectedSort == 'price_desc') {
-      filtered.sort((a, b) => b['price'].compareTo(a['price']));
-    } else if (_selectedSort == 'price_asc') {
-      filtered.sort((a, b) => a['price'].compareTo(b['price']));
-    }
-    return filtered;
+  @override
+  void initState() {
+    super.initState();
+    _notifier = locator<CatalogNotifier>();
+    _notifier.addListener(_onCatalogChanged);
+    // Paso 1: cargar tipos de servicio para esta subcategoría
+    _notifier.loadTiposServicio(widget.subcategoriaId);
   }
 
   @override
   void dispose() {
+    _notifier.removeListener(_onCatalogChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onCatalogChanged() {
+    if (!mounted) return;
+    // Paso 2: cuando tipos carguen exitosamente y no hay tipo seleccionado aún,
+    // cargar servicios del primer tipo disponible (sin N+1 — solo 1 llamada)
+    if (_notifier.tiposState == CatalogLoadState.success &&
+        _notifier.tipos.isNotEmpty &&
+        _selectedTipoId == null) {
+      final primerTipo = _notifier.tipos.first;
+      _selectedTipoId = primerTipo.id;
+      _selectedTipoNombre = primerTipo.nombre;
+      _notifier.buscarServicios('');
+    }
+    setState(() {});
+  }
+
+  // Cambio de tipo on-demand (filtro de menú)
+  void _selectTipo(String nombre, int id) {
+    if (_selectedTipoId == id) return; // ya seleccionado, no recargar
+    setState(() {
+      _selectedTipoNombre = nombre;
+      _selectedTipoId = id;
+    });
+  }
+
+  List<ServicioProveedor> get _filteredServices {
+    var list = List<ServicioProveedor>.from(_notifier.servicios);
+
+    if (_selectedTipoId != null) {
+      list = list.where((s) => s.tipoServicioId == _selectedTipoId).toList();
+    }
+
+    // Búsqueda por nombre del servicio
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list
+          .where((s) =>
+              s.nombreMostrado.toLowerCase().contains(q) ||
+              (s.tipoServicioNombre?.toLowerCase().contains(q) ?? false))
+          .toList();
+    }
+
+    // Ordenar por precio
+    if (_selectedSort == 'price_asc') {
+      list.sort((a, b) => a.precioBase.compareTo(b.precioBase));
+    } else if (_selectedSort == 'price_desc') {
+      list.sort((a, b) => b.precioBase.compareTo(a.precioBase));
+    }
+
+    return list;
   }
 
   void _showGuestLoginModal() {
@@ -161,30 +111,26 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                  color: primaryBlue.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-              child: const Icon(Icons.lock_outline_rounded, color: primaryBlue, size: 40),
+                color: primaryBlue.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.lock_outline_rounded,
+                  color: primaryBlue, size: 40),
             ),
             const SizedBox(height: 16),
             const Text(
               '¡Inicia sesión para reservar!',
               style: TextStyle(
-                fontFamily: 'Poppins',
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-              ),
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20),
               textAlign: TextAlign.center,
             ),
           ],
         ),
         content: const Text(
           'Para poder agendar este servicio y gestionar tus reservas, necesitas tener una cuenta en ServiZone.',
-          style: TextStyle(
-            fontFamily: 'Roboto',
-            fontSize: 15,
-            color: darkGray,
-          ),
+          style: TextStyle(fontFamily: 'Roboto', fontSize: 15, color: darkGray),
           textAlign: TextAlign.center,
         ),
         actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
@@ -202,9 +148,11 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Iniciar Sesión', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text('Iniciar Sesión',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(height: 12),
@@ -216,9 +164,11 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: primaryBlue),
                     foregroundColor: primaryBlue,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Continuar explorando', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text('Continuar explorando',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -228,23 +178,34 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
     );
   }
 
-  void _showBookingDialog(Map<String, dynamic> service) {
+  void _showBookingDialog(ServicioProveedor service) {
     if (widget.isGuest) {
       _showGuestLoginModal();
       return;
     }
-    
-    // Nueva pantalla de detalle con estilo minimalista
+    // Convertir a Map para ServiceDetailScreen (sin modificar esa pantalla)
+    final displayMap = <String, dynamic>{
+      'name': service.nombreMostrado,
+      'professional': service.proveedorNombre ?? 'Proveedor #${service.proveedorId}',
+      'description': service.descripcion,
+      'price': service.precioBase,
+      'rating': service.ratingMedia,
+      'reviewCount': 0,
+      'type': service.tipoServicioNombre ?? 'Servicio',
+    };
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ServiceDetailScreen(service: service),
+        builder: (context) => ServiceDetailScreen(service: displayMap),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final tiposState = _notifier.tiposState;
+    final serviciosState = _notifier.serviciosState;
+
     return Scaffold(
       backgroundColor: lightGray,
       appBar: AppBar(
@@ -264,244 +225,342 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded, color: darkGray),
-            onSelected: (value) {
-              if (value == 'sort_rating') {
-                setState(() => _selectedSort = 'rating');
-              } else if (value == 'sort_price_desc') {
-                setState(() => _selectedSort = 'price_desc');
-              } else if (value == 'sort_price_asc') {
-                setState(() => _selectedSort = 'price_asc');
-              } else if (value.startsWith('type_')) {
-                final type = value.substring(5);
-                setState(() {
-                  if (_selectedTypes.contains(type)) {
-                    _selectedTypes.remove(type);
-                  } else {
-                    _selectedTypes.add(type);
+          // Menú de filtro y orden — solo visible cuando tipos ya cargaron
+          if (tiposState == CatalogLoadState.success && _notifier.tipos.isNotEmpty)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, color: darkGray),
+              onSelected: (value) {
+                if (value == 'sort_price_desc') {
+                  setState(() => _selectedSort = 'price_desc');
+                } else if (value == 'sort_price_asc') {
+                  setState(() => _selectedSort = 'price_asc');
+                } else if (value.startsWith('tipo_')) {
+                  final parts = value.substring(5).split('|');
+                  if (parts.length == 2) {
+                    final id = int.tryParse(parts[0]);
+                    final nombre = parts[1];
+                    if (id != null) _selectTipo(nombre, id);
                   }
-                });
-              }
-            },
-            itemBuilder: (context) {
-              List<PopupMenuEntry<String>> items = [];
-              items.add(const PopupMenuItem(
-                enabled: false,
-                child: Text('Filtrar por Tipo:', style: TextStyle(fontWeight: FontWeight.bold, color: textGray, fontSize: 12)),
-              ));
-              for (final type in _availableTypes) {
+                }
+              },
+              itemBuilder: (context) {
+                final items = <PopupMenuEntry<String>>[];
+
+                // Filtro por tipo
+                items.add(const PopupMenuItem(
+                  enabled: false,
+                  child: Text('Filtrar por Tipo:',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: textGray,
+                          fontSize: 12)),
+                ));
+                for (final tipo in _notifier.tipos) {
+                  final isSelected = _selectedTipoId == tipo.id;
+                  items.add(PopupMenuItem<String>(
+                    value: 'tipo_${tipo.id}|${tipo.nombre}',
+                    child: Row(
+                      children: [
+                        Icon(
+                          isSelected
+                              ? Icons.check_box_rounded
+                              : Icons.check_box_outline_blank_rounded,
+                          color: primaryBlue,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Flexible(child: Text(tipo.nombre)),
+                      ],
+                    ),
+                  ));
+                }
+
+                items.add(const PopupMenuDivider());
+                items.add(const PopupMenuItem(
+                  enabled: false,
+                  child: Text('Ordenar por precio:',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: textGray,
+                          fontSize: 12)),
+                ));
                 items.add(PopupMenuItem<String>(
-                  value: 'type_$type',
+                  value: 'sort_price_asc',
                   child: Row(
                     children: [
-                      Icon(
-                        _selectedTypes.contains(type) ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                        color: primaryBlue,
-                        size: 20,
-                      ),
+                      Icon(Icons.arrow_upward_rounded,
+                          color: _selectedSort == 'price_asc'
+                              ? primaryBlue
+                              : textGray,
+                          size: 20),
                       const SizedBox(width: 12),
-                      Text(type),
+                      const Text('Precio: menor a mayor'),
                     ],
                   ),
                 ));
-              }
-              items.add(const PopupMenuDivider());
-              items.add(const PopupMenuItem(
-                enabled: false,
-                child: Text('Ordenar por:', style: TextStyle(fontWeight: FontWeight.bold, color: textGray, fontSize: 12)),
-              ));
-              items.add(PopupMenuItem<String>(
-                value: 'sort_rating',
-                child: Row(
-                  children: [
-                    Icon(Icons.star_rounded, color: _selectedSort == 'rating' ? primaryBlue : textGray, size: 20),
-                    const SizedBox(width: 12),
-                    const Text('Mejor calificados'),
-                  ],
-                ),
-              ));
-              items.add(PopupMenuItem<String>(
-                value: 'sort_price_desc',
-                child: Row(
-                  children: [
-                    Icon(Icons.arrow_downward_rounded, color: _selectedSort == 'price_desc' ? primaryBlue : textGray, size: 20),
-                    const SizedBox(width: 12),
-                    const Text('Precio: mayor a menor'),
-                  ],
-                ),
-              ));
-              items.add(PopupMenuItem<String>(
-                value: 'sort_price_asc',
-                child: Row(
-                  children: [
-                    Icon(Icons.arrow_upward_rounded, color: _selectedSort == 'price_asc' ? primaryBlue : textGray, size: 20),
-                    const SizedBox(width: 12),
-                    const Text('Precio: menor a mayor'),
-                  ],
-                ),
-              ));
-              return items;
-            },
-          )
-        ],
-      ),
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              // Buscador
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(25),
-                    boxShadow: [BoxShadow(color: cardShadow, blurRadius: 8)],
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                    decoration: InputDecoration(
-                      hintText: 'Buscar el servicio que necesitas',
-                      hintStyle: TextStyle(fontFamily: 'Roboto', color: textGray),
-                      prefixIcon: Icon(Icons.search_rounded, color: textGray),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: Icon(Icons.clear_rounded, color: textGray),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _searchQuery = '');
-                              },
-                            )
-                          : null,
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                ),
-              ),
-
-              // Lista de servicios
-              Expanded(
-                child: _filteredServices.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.search_off_rounded, size: 60, color: textGray),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No se encontraron servicios',
-                              style: TextStyle(
-                                fontFamily: 'Roboto',
-                                fontSize: 16,
-                                color: textGray,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _filteredServices.length,
-                        itemBuilder: (context, index) {
-                          final service = _filteredServices[index];
-                          return _buildServiceCard(service);
-                        },
-                      ),
-              ),
-            ],
-          ),
-
-          // Indicador de carga centralizado
-          if (_isLoading)
-            Container(
-              color: Colors.black.withValues(alpha: 0.5),
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Column(
-                    mainAxisSize: MainAxisSize.min,
+                items.add(PopupMenuItem<String>(
+                  value: 'sort_price_desc',
+                  child: Row(
                     children: [
-                      CircularProgressIndicator(color: primaryBlue),
-                      SizedBox(height: 20),
-                      Text(
-                        'Procesando reserva...',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontWeight: FontWeight.w600,
-                          color: darkGray,
-                        ),
-                      ),
+                      Icon(Icons.arrow_downward_rounded,
+                          color: _selectedSort == 'price_desc'
+                              ? primaryBlue
+                              : textGray,
+                          size: 20),
+                      const SizedBox(width: 12),
+                      const Text('Precio: mayor a menor'),
                     ],
                   ),
+                ));
+                return items;
+              },
+            ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Buscador
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Container(
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: const [
+                  BoxShadow(color: cardShadow, blurRadius: 8)
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (v) async {
+                  setState(() => _searchQuery = v);
+                  await _notifier.buscarServicios(v.trim());
+                },
+                decoration: InputDecoration(
+                  hintText: 'Buscar el servicio que necesitas',
+                  hintStyle:
+                      const TextStyle(fontFamily: 'Roboto', color: textGray),
+                  prefixIcon:
+                      const Icon(Icons.search_rounded, color: textGray),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, color: textGray),
+                          onPressed: () async {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                            await _notifier.buscarServicios('');
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),
             ),
+          ),
+
+          // Chip del tipo seleccionado
+          if (_selectedTipoNombre != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.filter_list_rounded,
+                      size: 16, color: primaryBlue),
+                  const SizedBox(width: 6),
+                  Text(
+                    _selectedTipoNombre!,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: primaryBlue,
+                        fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+
+          // Lista de servicios
+          Expanded(child: _buildBody(tiposState, serviciosState)),
         ],
       ),
     );
   }
 
-  Widget _buildServiceCard(Map<String, dynamic> service) {
+  Widget _buildBody(CatalogLoadState tiposState, CatalogLoadState serviciosState) {
+    // Estado de carga de tipos
+    if (tiposState == CatalogLoadState.loading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: primaryBlue),
+            SizedBox(height: 16),
+            Text('Cargando tipos de servicio...',
+                style: TextStyle(color: textGray)),
+          ],
+        ),
+      );
+    }
+
+    if (tiposState == CatalogLoadState.error) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.cloud_off_rounded,
+                  size: 60, color: textGray.withValues(alpha: 0.5)),
+              const SizedBox(height: 16),
+              Text(_notifier.tiposError,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: textGray)),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Reintentar'),
+                onPressed: () =>
+                    _notifier.retryTiposServicio(widget.subcategoriaId),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryBlue,
+                    foregroundColor: Colors.white),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (tiposState == CatalogLoadState.success && _notifier.tipos.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox_rounded, size: 60, color: textGray),
+            SizedBox(height: 16),
+            Text('No hay servicios en esta subcategoría',
+                style: TextStyle(color: textGray, fontSize: 16)),
+          ],
+        ),
+      );
+    }
+
+    // Estado de carga de servicios
+    if (serviciosState == CatalogLoadState.loading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: primaryBlue),
+            SizedBox(height: 16),
+            Text('Cargando servicios...', style: TextStyle(color: textGray)),
+          ],
+        ),
+      );
+    }
+
+    if (serviciosState == CatalogLoadState.error) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline_rounded,
+                  size: 60, color: errorRed.withValues(alpha: 0.7)),
+              const SizedBox(height: 16),
+              Text(_notifier.serviciosError,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: textGray)),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Reintentar'),
+                onPressed: () => _notifier.buscarServicios(_searchQuery.trim()),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryBlue,
+                    foregroundColor: Colors.white),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final filtered = _filteredServices;
+
+    if (filtered.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off_rounded, size: 60, color: textGray),
+            SizedBox(height: 16),
+            Text('No se encontraron servicios',
+                style: TextStyle(fontFamily: 'Roboto', fontSize: 16, color: textGray)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: filtered.length,
+      itemBuilder: (context, index) => _buildServiceCard(filtered[index]),
+    );
+  }
+
+  Widget _buildServiceCard(ServicioProveedor service) {
+    final iconColor = CatalogVisuals.servicioColor(service.tipoServicioNombre);
+    final icon = CatalogVisuals.servicioIcon(service.tipoServicioNombre);
+    final precioStr = service.precioBase
+        .toStringAsFixed(0)
+        .replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]},',
+        );
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: cardShadow, blurRadius: 8)],
+        boxShadow: const [BoxShadow(color: cardShadow, blurRadius: 8)],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icono izquierdo
+            // Ícono izquierdo
             Container(
               width: 70,
               height: 70,
               decoration: BoxDecoration(
-                color: service['iconColor'].withValues(alpha: 0.2),
+                color: iconColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                service['icon'],
-                size: 40,
-                color: service['iconColor'],
-              ),
+              child: Icon(icon, size: 36, color: iconColor),
             ),
             const SizedBox(width: 16),
-            // Información derecha
+            // Información
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Título y calificación
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          service['name'],
-                          style: const TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: darkGray,
-                          ),
-                        ),
-                      ),
-                      _buildRatingStars(service['rating']),
-                    ],
+                  Text(
+                    service.nombreMostrado, // getter null-safe
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: darkGray,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    service['professional'],
+                    'Proveedor #${service.proveedorId}',
                     style: const TextStyle(
                       fontFamily: 'Roboto',
                       fontSize: 14,
@@ -509,23 +568,12 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    service['description'],
-                    style: const TextStyle(
-                      fontFamily: 'Roboto',
-                      fontSize: 12,
-                      color: textGray,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '\$${service['price'].toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
+                        '\$$precioStr',
                         style: const TextStyle(
                           fontFamily: 'Poppins',
                           fontSize: 18,
@@ -543,8 +591,7 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                           foregroundColor: Colors.white,
                           minimumSize: const Size(80, 36),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                              borderRadius: BorderRadius.circular(8)),
                         ),
                         child: const Text('Reservar'),
                       ),
@@ -558,23 +605,4 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
       ),
     );
   }
-  Widget _buildRatingStars(double rating) {
-    int fullStars = rating.floor();
-    double fractional = rating - fullStars;
-    bool hasHalf = fractional >= 0.5;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(5, (i) {
-        if (i < fullStars) {
-          return const Icon(Icons.star_rounded, color: Colors.orange, size: 16);
-        } else if (i == fullStars && hasHalf) {
-          return const Icon(Icons.star_half_rounded, color: Colors.orange, size: 16);
-        } else {
-          return Icon(Icons.star_border_rounded, color: Colors.orange.withValues(alpha: 0.3), size: 16);
-        }
-      }),
-    );
-  }
 }
-
-

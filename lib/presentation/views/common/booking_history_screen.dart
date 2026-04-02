@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
 import 'package:servizone_app/data/models/booking_model.dart';
 import 'package:servizone_app/presentation/widgets/shared/status_badge.dart';
 import 'package:servizone_app/presentation/widgets/shared/booking_detail_sheet.dart';
+import 'package:servizone_app/core/locator.dart';
+import 'package:servizone_app/domain/repositories/auth_repository.dart';
+import 'package:servizone_app/presentation/viewmodels/booking_view_model.dart';
 
 class BookingHistoryScreen extends StatefulWidget {
   final bool isProvider;
@@ -23,111 +25,41 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
   String _priceSort = 'none'; // 'asc', 'desc', 'none'
   String _dateSort = 'desc'; // 'asc', 'desc'
   final List<String> _selectedServiceTypes = [];
-  bool _isLoading = false;
+  late final BookingViewModel _vm;
 
   List<String> get _availableServiceTypes {
-    return _allBookings.map((e) => e.serviceType).toSet().toList();
+    return _vm.bookings.map((e) => e.serviceType).toSet().toList();
   }
-  
-  // Datos de ejemplo extendidos para el historial
-  final List<BookingModel> _allBookings = [
-    BookingModel(
-      id: 'H1',
-      clientId: 'C1',
-      providerId: 'P1',
-      clientName: 'Juan Pérez',
-      providerName: 'Carlos Electrics',
-      serviceType: 'Electricidad',
-      serviceName: 'Cortocircuito',
-      date: DateTime.now().subtract(const Duration(days: 45)),
-      address: 'Calle 123 # 45-67',
-      price: 60000,
-      status: BookingStatus.completada,
-      rating: 5.0,
-      review: 'Excelente trabajo, muy profesional.',
-    ),
-    BookingModel(
-      id: 'H2',
-      clientId: 'C2',
-      providerId: 'P2',
-      clientName: 'María García',
-      providerName: 'Plomería Express',
-      serviceType: 'Plomería',
-      serviceName: 'Fuga de agua',
-      date: DateTime.now().subtract(const Duration(days: 30)),
-      address: 'Av. Siempre Viva 742',
-      price: 45000,
-      status: BookingStatus.cancelada,
-      cancellationReason: 'El cliente no se encontraba en casa.',
-    ),
-    BookingModel(
-      id: 'H3',
-      clientId: 'C1',
-      providerId: 'P3',
-      clientName: 'Juan Pérez',
-      providerName: 'Limpieza Total',
-      serviceType: 'Limpieza automatizada',
-      serviceName: 'Limpieza de Hogar',
-      date: DateTime.now().subtract(const Duration(days: 15)),
-      address: 'Calle 123 # 45-67',
-      price: 80000,
-      status: BookingStatus.completada,
-      rating: 4.0,
-    ),
-    BookingModel(
-      id: 'H4',
-      clientId: 'C3',
-      providerId: 'P4',
-      clientName: 'Roberto Gómez',
-      providerName: 'Mascota Feliz',
-      serviceType: 'Mascotas',
-      serviceName: 'Paseo de perros',
-      date: DateTime.now().add(const Duration(days: 2)),
-      address: 'Carrera 10 # 20-30',
-      price: 25000,
-      status: BookingStatus.pendiente,
-    ),
-    BookingModel(
-      id: 'H5',
-      clientId: 'C4',
-      providerId: 'P5',
-      clientName: 'Ana Martínez',
-      providerName: 'Belleza en Casa',
-      serviceType: 'Cuidado Personal',
-      serviceName: 'Manicura y Pedicura',
-      date: DateTime.now().subtract(const Duration(days: 60)),
-      address: 'Calle 50 # 10-20',
-      price: 35000,
-      status: BookingStatus.completada,
-      rating: 4.5,
-      review: 'Muy detallista y amable.',
-    ),
-  ];
-
-  String? _currentUserId;
 
   @override
   void initState() {
     super.initState();
-    _loadCurrentUserId();
+    _vm = locator<BookingViewModel>();
+    _vm.addListener(_onChanged);
+    _load();
   }
 
-  Future<void> _loadCurrentUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _currentUserId = prefs.getString('user_id') ?? (widget.isProvider ? 'P1' : 'C1');
-    });
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _load() async {
+    final authRepo = locator<AuthRepository>();
+    final res = widget.isProvider ? await authRepo.getCurrentProveedorId() : await authRepo.getCurrentClienteId();
+    if (!mounted) return;
+    if (res.success && res.data != null) {
+      if (widget.isProvider) {
+        await _vm.loadProviderBookings(res.data!);
+      } else {
+        await _vm.loadClientBookings(res.data!);
+      }
+    } else {
+      _vm.setError(res.message.isNotEmpty ? res.message : 'No se pudo cargar tu historial.');
+    }
   }
 
   List<BookingModel> get _filteredBookings {
-    var filtered = _allBookings.where((booking) {
-      // Separación de datos por user_id y role_type
-      final bool belongsToUser = widget.isProvider 
-          ? booking.providerId == _currentUserId 
-          : booking.clientId == _currentUserId;
-
-      if (!belongsToUser) return false;
-
+    var filtered = _vm.bookings.where((booking) {
       // Filtro de búsqueda (Nombre de servicio, cliente o proveedor)
       final searchLower = _searchQuery.toLowerCase();
       final matchesSearch = booking.serviceName.toLowerCase().contains(searchLower) ||
@@ -159,19 +91,9 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
 
   @override
   void dispose() {
+    _vm.removeListener(_onChanged);
     _searchController.dispose();
     super.dispose();
-  }
-
-  void _clearFilters() {
-    setState(() {
-      _statusFilter = null;
-      _searchController.clear();
-      _searchQuery = '';
-      _priceSort = 'none';
-      _dateSort = 'desc';
-      _selectedServiceTypes.clear();
-    });
   }
 
   @override
@@ -312,8 +234,8 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
         children: [
           _buildSearchBar(),
           Expanded(
-            child: _isLoading 
-                ? const Center(child: CircularProgressIndicator()) 
+            child: _vm.isBusy
+                ? const Center(child: CircularProgressIndicator(color: primaryBlue))
                 : _filteredBookings.isEmpty
                     ? _buildEmptyState()
                     : ListView.builder(
@@ -467,6 +389,31 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
   }
 
   Widget _buildEmptyState() {
+    final err = _vm.error;
+    if (err != null && err.isNotEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline_rounded, size: 80, color: errorRed),
+              const SizedBox(height: 16),
+              Text(err, textAlign: TextAlign.center, style: const TextStyle(color: textGray)),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: 200,
+                child: ElevatedButton(
+                  onPressed: _load,
+                  style: ElevatedButton.styleFrom(backgroundColor: primaryBlue),
+                  child: const Text('Reintentar', style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Center(
       child: SingleChildScrollView(
         child: Column(
@@ -482,5 +429,3 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
     );
   }
 }
-
-

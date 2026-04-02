@@ -1,20 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
-import 'package:servizone_app/data/models/booking_model.dart';
-
-class ProviderRequest {
-  final String id;
-  final String name;
-  final String email;
-  final DateTime requestDate;
-
-  ProviderRequest({
-    required this.id,
-    required this.name,
-    required this.email,
-    required this.requestDate,
-  });
-}
+import 'package:servizone_app/core/locator.dart';
+import 'package:servizone_app/data/providers/auth_service.dart';
+import 'package:servizone_app/data/providers/admin_audit_service.dart';
+import 'package:servizone_app/data/models/auth/solicitud_model.dart';
+import 'package:servizone_app/presentation/views/admin/shared/admin_shared_widgets.dart';
 
 class ProviderRequestsScreen extends StatefulWidget {
   const ProviderRequestsScreen({super.key});
@@ -24,216 +14,410 @@ class ProviderRequestsScreen extends StatefulWidget {
 }
 
 class _ProviderRequestsScreenState extends State<ProviderRequestsScreen> {
-  final List<ProviderRequest> _requests = [
-    ProviderRequest(
-      id: '1',
-      name: 'Andrés Felipe Restrepo',
-      email: 'andres.restrepo@email.com',
-      requestDate: DateTime.now().subtract(const Duration(days: 1)),
-    ),
-    ProviderRequest(
-      id: '2',
-      name: 'Laura Sofía Gómez',
-      email: 'laura.gomez@email.com',
-      requestDate: DateTime.now().subtract(const Duration(days: 2)),
-    ),
-    ProviderRequest(
-      id: '3',
-      name: 'Miguel Ángel Torres',
-      email: 'miguel.torres@email.com',
-      requestDate: DateTime.now().subtract(const Duration(days: 3)),
-    ),
-  ];
+  final List<SolicitudDto> _requests = [];
+  final List<SolicitudDto> _filteredRequests = [];
+  final TextEditingController _searchController = TextEditingController();
+  final AdminAuditService _auditService = locator<AdminAuditService>();
+  
+  bool _isLoading = true;
+  bool _isProcessing = false;
+  String? _errorMessage;
+  String _searchQuery = '';
 
-  final List<ProviderRequest> _history = [];
+  @override
+  void initState() {
+    super.initState();
+    _loadRequests();
+  }
 
-  void _handleRequest(String id, bool accept) {
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadRequests() async {
     setState(() {
-      final request = _requests.firstWhere((r) => r.id == id);
-      _requests.removeWhere((r) => r.id == id);
-      _history.add(request);
+      _isLoading = true;
+      _errorMessage = null;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(accept ? 'Solicitud aceptada' : 'Solicitud rechazada'),
-        backgroundColor: accept ? successGreen : errorRed,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
+    try {
+      final result = await locator<AuthService>().getSolicitudesProveedor();
+      if (result['success']) {
+        final List<dynamic> data = result['data'] ?? [];
+        if (mounted) {
+          setState(() {
+            _requests.clear();
+            _requests.addAll(data.map((e) => SolicitudDto.fromJson(e)).toList());
+            _applyFilter(_searchQuery);
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _errorMessage = result['message'];
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error inesperado: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _applyFilter(String query) {
+    _searchQuery = query;
+    _filteredRequests.clear();
+    if (query.isEmpty) {
+      _filteredRequests.addAll(_requests);
+    } else {
+      final lowerQuery = query.toLowerCase();
+      _filteredRequests.addAll(_requests.where((r) => 
+        r.usuarioNombre.toLowerCase().contains(lowerQuery) || 
+        r.usuarioCorreo.toLowerCase().contains(lowerQuery) ||
+        r.descripcionPerfil.toLowerCase().contains(lowerQuery)
+      ));
+    }
+  }
+
+  Future<void> _handleRequest(SolicitudDto request, bool accept) async {
+    setState(() => _isProcessing = true);
+
+    try {
+      final result = await locator<AuthService>().procesarSolicitudProveedor(request.id, accept);
+      
+      if (result['success']) {
+        await _auditService.logAction(
+          accept ? 'APROBACIÓN PROVEEDOR' : 'RECHAZO PROVEEDOR',
+          'Solicitud #${request.id} de ${request.usuarioNombre} (${request.usuarioCorreo}) fue ${accept ? 'APROBADA' : 'RECHAZADA'}.'
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? (accept ? 'Solicitud Aprobada' : 'Solicitud Rechazada')),
+              backgroundColor: accept ? successGreen : errorRed,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        _loadRequests();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${result['message']}'), 
+              backgroundColor: errorRed,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error crítico: $e'), backgroundColor: errorRed),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: backgroundGray,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'Solicitudes de Proveedores',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: textGray,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: () {
-              // TODO: Implementar filtros de solicitudes
-            },
-          ),
-        ],
-      ),
-      body: _requests.isEmpty
-          ? const Center(
-              child: Text(
-                'No hay solicitudes pendientes',
-                style: TextStyle(color: textGray, fontSize: 16),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FB),
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(130),
+            child: AdminHeader(
+              title: 'Solicitudes',
+              subtitle: 'Revisión técnica de aspirantes a proveedores',
+              action: IconButton(
+                icon: const Icon(Icons.refresh_rounded, color: primaryBlue),
+                onPressed: _loadRequests,
+                tooltip: 'Actualizar lista',
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: _requests.length,
-              itemBuilder: (context, index) {
-                final request = _requests[index];
-                return _buildRequestCard(request);
-              },
             ),
-    );
-  }
-
-  Widget _buildRequestCard(ProviderRequest request) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: cardShadow,
-            blurRadius: 10,
-            offset: const Offset(0, 4),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          body: Column(
             children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: const BoxDecoration(
-                  color: purple,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: Icon(Icons.person_outline_rounded, color: purple, size: 28),
-                    ),
-                  ),
-                ),
+              AdminSearchBar(
+                controller: _searchController,
+                hintText: 'Filtrar por nombre o correo...',
+                onChanged: (val) => setState(() => _applyFilter(val)),
               ),
-              const SizedBox(width: 16),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      request.name,
-                      style: textStyleSubtitleMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      request.email,
-                      style: textStyleBodyMedium,
-                    ),
-                  ],
-                ),
+                child: _isLoading
+                    ? const AdminLoadingOverlay()
+                    : _errorMessage != null
+                        ? _buildErrorState()
+                        : _filteredRequests.isEmpty
+                            ? const AdminEmptyState(
+                                icon: Icons.person_add_disabled_rounded,
+                                title: 'Sin solicitudes',
+                                subtitle: 'No se encontraron peticiones pendientes que coincidan con tu búsqueda.',
+                              )
+                            : _buildRequestsList(),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Solicitado el: ${request.requestDate.day}/${request.requestDate.month}/${request.requestDate.year}',
-                style: textStyleHelperSmall,
+        ),
+        if (_isProcessing)
+          const AdminLoadingOverlay(),
+      ],
+    );
+  }
+
+  Widget _buildErrorState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.cloud_off_rounded, size: 64, color: errorRed),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: isDark ? Colors.white70 : textGray, fontSize: 15),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _loadRequests,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryBlue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
+              child: const Text('REINTENTAR CONEXIÓN'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRequestsList() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      itemCount: _filteredRequests.length,
+      itemBuilder: (context, index) => _buildRequestCard(_filteredRequests[index]),
+    );
+  }
+
+  Widget _buildRequestCard(SolicitudDto request) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+        boxShadow: isDark ? null : const [
+          BoxShadow(
+            color: Color(0x05000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          dividerColor: Colors.transparent,
+          unselectedWidgetColor: isDark ? Colors.white54 : textGray,
+        ),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          iconColor: primaryBlue,
+          collapsedIconColor: isDark ? Colors.white54 : textGray,
+          leading: _buildAvatar(request.usuarioNombre),
+          title: Text(
+            request.usuarioNombre,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDark ? Colors.white : darkGray,
+            ),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(request.usuarioCorreo, style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : textGray)),
+              const SizedBox(height: 4),
               Row(
                 children: [
-                  _buildActionButton(
-                    icon: Icons.close_rounded,
-                    color: errorRed,
-                    onTap: () => _handleRequest(request.id, false),
-                  ),
-                  const SizedBox(width: 12),
-                  _buildActionButton(
-                    icon: Icons.check_rounded,
-                    color: successGreen,
-                    onTap: () => _handleRequest(request.id, true),
-                  ),
+                   Icon(Icons.access_time_rounded, size: 12, color: isDark ? Colors.white38 : Colors.grey),
+                   const SizedBox(width: 4),
+                   Text(
+                     'Hace ${_getDaysAgo(request.fechaSolicitud)}',
+                     style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey),
+                   ),
                 ],
               ),
             ],
           ),
+          trailing: AdminDataBadge.status(request.estado),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Divider(height: 32, color: isDark ? Colors.white10 : null),
+                  _buildDetailRow(Icons.phone_iphone_rounded, 'Teléfono', request.usuarioTelefono),
+                  const SizedBox(height: 12),
+                  _buildDetailRow(Icons.history_edu_rounded, 'Experiencia', '${request.anosExperiencia} años'),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'PROPUESTA DE SERVICIO',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primaryBlue, letterSpacing: 0.8),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF2C2C2C) : backgroundGray,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      request.descripcionPerfil.isEmpty ? 'Sin descripción proporcionada.' : request.descripcionPerfil,
+                      style: TextStyle(
+                        fontSize: 13, 
+                        color: isDark ? Colors.white70 : darkGray, 
+                        height: 1.5
+                      ),
+                    ),
+                  ),
+                  if (request.documentos.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    const Text(
+                      'DOCUMENTACIÓN VERIFICABLE',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: primaryBlue, letterSpacing: 0.8),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 50,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: request.documentos.length,
+                        itemBuilder: (ctx, i) => _buildDocItem(request.documentos[i]),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => _handleRequest(request, false),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: errorRed,
+                            side: const BorderSide(color: errorRed),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('RECHAZAR', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => _handleRequest(request, true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: successGreen,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                          ),
+                          child: const Text('APROBAR', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(String name) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: primaryBlue.withValues(alpha: isDark ? 0.15 : 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Text(
+          name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'U',
+          style: TextStyle(
+            color: isDark ? Colors.white : primaryBlue,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: isDark ? Colors.white38 : Colors.grey),
+        const SizedBox(width: 8),
+        Text('$label: ', style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : textGray)),
+        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white : darkGray)),
+      ],
+    );
+  }
+
+  Widget _buildDocItem(String url) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.file_present_rounded, size: 16, color: primaryBlue),
+          const SizedBox(width: 6),
+          Text('Certificado.pdf', style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : darkGray)),
         ],
       ),
     );
   }
 
-  Widget _buildStatusBadge(bool accept) {
-    final color = accept ? successGreen : errorRed;
-    final label = accept ? 'ACEPTADA' : 'RECHAZADA';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: color,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-      ),
-    );
+  String _getDaysAgo(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date).inDays;
+    if (diff == 0) return 'hoy';
+    if (diff == 1) return 'ayer';
+    return '$diff días';
   }
 }

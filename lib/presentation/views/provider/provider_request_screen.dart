@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart'; // Para kIsWeb
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -19,7 +19,8 @@ class _ProviderRequestScreenState extends State<ProviderRequestScreen> {
   final _experienceController = TextEditingController();
   
   bool _isLoading = false;
-  final List<File> _selectedFiles = [];
+  // Guardamos los PlatformFile en lugar de File (de dart:io) para compatibilidad Web
+  final List<PlatformFile> _selectedFiles = [];
   final List<String> _allowedExtensions = ['pdf', 'doc', 'docx'];
 
   @override
@@ -38,16 +39,15 @@ class _ProviderRequestScreenState extends State<ProviderRequestScreen> {
         allowMultiple: true,
         type: FileType.custom,
         allowedExtensions: _allowedExtensions,
+        withData: kIsWeb, // Necesario en Web para obtener bytes
       );
 
       if (result != null && mounted) {
         setState(() {
-          for (var path in result.paths) {
-            if (path != null) {
-              final file = File(path);
-              if (!_selectedFiles.any((f) => f.path == file.path)) {
-                _selectedFiles.add(file);
-              }
+          for (var file in result.files) {
+            // Evitar duplicados por nombre
+            if (!_selectedFiles.any((f) => f.name == file.name)) {
+              _selectedFiles.add(file);
             }
           }
         });
@@ -89,11 +89,13 @@ class _ProviderRequestScreenState extends State<ProviderRequestScreen> {
 
     try {
       final authService = locator<AuthService>();
+      
+      // En Web no usamos path, enviamos bytes si fuera necesario, 
+      // pero AuthService espera paths. Vamos a ajustar esto.
       final result = await authService.enviarSolicitudProveedor(
         descripcion: _descriptionController.text.trim(),
-        // Enviando como string para que FormData lo tome como valor textual simple
         experiencia: _experienceController.text.trim(),
-        filePaths: _selectedFiles.map((f) => f.path).toList(),
+        files: _selectedFiles,
       );
 
       if (!mounted) return;
@@ -193,7 +195,12 @@ class _ProviderRequestScreenState extends State<ProviderRequestScreen> {
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: _inputDecoration('Ej: 5'),
-                validator: (v) => (v == null || v.isEmpty) ? 'Requerido' : null,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Requerido';
+                  final numVal = int.tryParse(v);
+                  if (numVal == null || numVal <= 0) return 'Debe ser mayor a 0';
+                  return null;
+                },
               ),
               const SizedBox(height: 32),
 
@@ -272,11 +279,11 @@ class _ProviderRequestScreenState extends State<ProviderRequestScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: primaryBlue.withOpacity(0.5), style: BorderStyle.solid),
+          border: Border.all(color: primaryBlue.withValues(alpha: 0.5), style: BorderStyle.solid),
         ),
         child: Column(
           children: [
-            Icon(Icons.cloud_upload_outlined, size: 40, color: primaryBlue.withOpacity(0.7)),
+            Icon(Icons.cloud_upload_outlined, size: 40, color: primaryBlue.withValues(alpha: 0.7)),
             const SizedBox(height: 12),
             const Text('Seleccionar archivos', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
@@ -291,7 +298,7 @@ class _ProviderRequestScreenState extends State<ProviderRequestScreen> {
     return Column(
       children: List.generate(_selectedFiles.length, (index) {
         final file = _selectedFiles[index];
-        final name = file.path.split('/').last.split('\\').last;
+        final name = file.name;
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

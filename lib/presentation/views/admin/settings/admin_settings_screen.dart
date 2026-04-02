@@ -59,7 +59,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(color: primaryBlue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                child: Icon(Icons.lock_reset_rounded, color: primaryBlue),
+                child: const Icon(Icons.lock_reset_rounded, color: primaryBlue),
               ),
               const SizedBox(width: 12),
               const Text('Cambiar Contraseña', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkGray)),
@@ -77,7 +77,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
                     obscureText: obscureCurrent,
                     decoration: InputDecoration(
                       labelText: 'Contraseña actual',
-                      prefixIcon: Icon(Icons.lock_outline_rounded, color: primaryBlue),
+                      prefixIcon: const Icon(Icons.lock_outline_rounded, color: primaryBlue),
                       suffixIcon: IconButton(
                         icon: Icon(obscureCurrent ? Icons.visibility_off : Icons.visibility),
                         onPressed: () => setDialogState(() => obscureCurrent = !obscureCurrent),
@@ -95,7 +95,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
                     obscureText: obscureNew,
                     decoration: InputDecoration(
                       labelText: 'Nueva contraseña',
-                      prefixIcon: Icon(Icons.lock_rounded, color: primaryBlue),
+                      prefixIcon: const Icon(Icons.lock_rounded, color: primaryBlue),
                       suffixIcon: IconButton(
                         icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility),
                         onPressed: () => setDialogState(() => obscureNew = !obscureNew),
@@ -117,7 +117,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
                     obscureText: obscureConfirm,
                     decoration: InputDecoration(
                       labelText: 'Confirmar contraseña',
-                      prefixIcon: Icon(Icons.lock_rounded, color: primaryBlue),
+                      prefixIcon: const Icon(Icons.lock_rounded, color: primaryBlue),
                       suffixIcon: IconButton(
                         icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility),
                         onPressed: () => setDialogState(() => obscureConfirm = !obscureConfirm),
@@ -182,6 +182,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
 
 
   Widget _buildSectionHeader(String title, IconData icon) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 24, 20, 16),
       child: Row(
@@ -189,11 +190,21 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
           Container(
             width: 32,
             height: 32,
-            decoration: BoxDecoration(color: primaryBlue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(
+              color: primaryBlue.withValues(alpha: 0.1), 
+              borderRadius: BorderRadius.circular(8)
+            ),
             child: Icon(icon, color: primaryBlue, size: 18),
           ),
           const SizedBox(width: 12),
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkGray)),
+          Text(
+            title, 
+            style: TextStyle(
+              fontSize: 18, 
+              fontWeight: FontWeight.bold, 
+              color: isDark ? Colors.white : darkGray
+            )
+          ),
         ],
       ),
     );
@@ -207,9 +218,15 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
     Widget? trailing,
     VoidCallback? onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: cardShadow, blurRadius: 8)]),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white, 
+        borderRadius: BorderRadius.circular(12), 
+        boxShadow: isDark ? null : const [BoxShadow(color: cardShadow, blurRadius: 8)],
+        border: isDark ? Border.all(color: Colors.white10) : null,
+      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -230,8 +247,24 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: darkGray)),
-                      if (subtitle.isNotEmpty) ...[const SizedBox(height: 4), Text(subtitle, style: const TextStyle(fontSize: 14, color: textGray))],
+                      Text(
+                        title, 
+                        style: TextStyle(
+                          fontSize: 16, 
+                          fontWeight: FontWeight.w600, 
+                          color: isDark ? Colors.white : darkGray
+                        )
+                      ),
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 4), 
+                        Text(
+                          subtitle, 
+                          style: TextStyle(
+                            fontSize: 14, 
+                            color: isDark ? Colors.white54 : textGray
+                          )
+                        )
+                      ],
                     ],
                   ),
                 ),
@@ -257,7 +290,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
       subtitle: subtitle,
       icon: icon,
       iconColor: iconColor,
-      trailing: Switch(value: value, onChanged: (v) { HapticFeedback.lightImpact(); onChanged(v); }, activeColor: primaryBlue),
+      trailing: Switch(value: value, onChanged: (v) { HapticFeedback.lightImpact(); onChanged(v); }, activeThumbColor: primaryBlue),
     );
   }
 
@@ -279,7 +312,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           if (actionText != null) ...[Text(actionText, style: const TextStyle(fontSize: 14, color: textGray)), const SizedBox(width: 8)],
-          Icon(Icons.arrow_forward_ios_rounded, color: textGray, size: 16),
+          const Icon(Icons.arrow_forward_ios_rounded, color: textGray, size: 16),
         ],
       ),
     );
@@ -287,8 +320,9 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: lightGray,
+      backgroundColor: isDark ? const Color(0xFF121212) : lightGray,
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: SingleChildScrollView(
@@ -297,17 +331,27 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
             children: [
               Container(
                 padding: const EdgeInsets.all(20),
-                color: Colors.white,
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 child: Row(
                   children: [
                     Container(
                       width: 40,
                       height: 40,
-                      decoration: BoxDecoration(color: primaryBlue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                      child: Icon(Icons.settings_rounded, color: primaryBlue),
+                      decoration: BoxDecoration(
+                        color: primaryBlue.withValues(alpha: 0.1), 
+                        borderRadius: BorderRadius.circular(10)
+                      ),
+                      child: const Icon(Icons.settings_rounded, color: primaryBlue),
                     ),
                     const SizedBox(width: 16),
-                    const Text('Configuración', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkGray)),
+                    Text(
+                      'Configuración', 
+                      style: TextStyle(
+                        fontSize: 20, 
+                        fontWeight: FontWeight.bold, 
+                        color: isDark ? Colors.white : darkGray
+                      )
+                    ),
                   ],
                 ),
               ),
@@ -325,30 +369,41 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen>
               _buildSwitchCard(title: 'Sonidos del Sistema', subtitle: 'Reproducir sonidos', icon: Icons.volume_up_rounded, iconColor: const Color(0xFFFF5722), value: soundEnabled, onChanged: (v) => setState(() => soundEnabled = v)),
               _buildSectionHeader('Acciones', Icons.build_rounded),
               _buildActionCard(title: 'Limpiar Caché', subtitle: 'Libera espacio', icon: Icons.cleaning_services_rounded, iconColor: const Color(0xFFFF9800), onTap: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Caché limpiado'), backgroundColor: Colors.green)); }),
-              _buildActionCard(title: 'Exportar Datos', subtitle: 'Descargar copia', icon: Icons.download_rounded, iconColor: const Color(0xFF607D8B), onTap: () { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Iniciando exportación...'), backgroundColor: primaryBlue)); }),
+              _buildActionCard(title: 'Exportar Datos', subtitle: 'Descargar copia', icon: Icons.download_rounded, iconColor: const Color(0xFF607D8B), onTap: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Iniciando exportación...'), backgroundColor: primaryBlue)); }),
               const SizedBox(height: 32),
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: cardShadow, blurRadius: 8)]),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white, 
+                  borderRadius: BorderRadius.circular(12), 
+                  boxShadow: isDark ? null : const [BoxShadow(color: cardShadow, blurRadius: 8)],
+                  border: isDark ? Border.all(color: Colors.white10) : null,
+                ),
                 child: Column(
                   children: [
-                    Row(
+                    const Row(
                       children: [
                         Icon(Icons.info_outline_rounded, color: primaryBlue),
-                        const SizedBox(width: 12),
-                        const Text('Información de la Aplicación', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: darkGray)),
+                        SizedBox(width: 12),
+                        Text('Información de la Aplicación', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: darkGray)),
                       ],
                     ),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [const Text('Versión:', style: TextStyle(color: textGray)), const Text('1.2.3', style: TextStyle(fontWeight: FontWeight.w600, color: darkGray))],
+                      children: [
+                        Text('Versión:', style: TextStyle(color: isDark ? Colors.white54 : textGray)), 
+                        Text('1.2.3', style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? Colors.white : darkGray))
+                      ],
                     ),
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [const Text('Última actualización:', style: TextStyle(color: textGray)), const Text('15 Ene 2025', style: TextStyle(fontWeight: FontWeight.w600, color: darkGray))],
+                      children: [
+                        Text('Última actualización:', style: TextStyle(color: isDark ? Colors.white54 : textGray)), 
+                        Text('15 Ene 2025', style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? Colors.white : darkGray))
+                      ],
                     ),
                   ],
                 ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:servizone_app/core/locator.dart';
-import 'package:servizone_app/data/providers/auth_service.dart';
+import 'package:servizone_app/presentation/viewmodels/auth_view_model.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
 import 'package:servizone_app/core/routes/app_routes.dart';
 
@@ -12,26 +12,24 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  late final AuthViewModel _vm;
+
   @override
   void initState() {
     super.initState();
+    _vm = locator<AuthViewModel>();
     _checkSession();
   }
 
   Future<void> _checkSession() async {
-    // Evitar que la pantalla parpadee muy rápido si el backend responde ultra rápido
-    final minDelay = Future.delayed(const Duration(seconds: 1));
+    final res = await _vm.autoLogin();
+    final isLoggedIn = res.success && res.data == true;
     
-    final authService = locator<AuthService>();
-    final isLoggedIn = await authService.autoLogin();
-    
-    await minDelay;
-
     if (!mounted) return;
 
     if (isLoggedIn) {
       // Obtener el rol validado
-      final role = authService.currentRole ?? '';
+      final role = _vm.currentRole ?? '';
       switch (role) {
         case 'admin':
           Navigator.pushReplacementNamed(context, AppRoutes.adminDashboard);
