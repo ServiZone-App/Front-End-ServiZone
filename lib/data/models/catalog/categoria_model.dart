@@ -1,4 +1,4 @@
-/// Modelo de Categoría — serialización exclusiva PascalCase (backend .NET).
+/// Modelo de Categoría — soporta PascalCase y camelCase del backend.
 class Categoria {
   final int id;
   final String nombre;
@@ -10,11 +10,10 @@ class Categoria {
     this.descripcion,
   });
 
-  /// Construye desde JSON con claves PascalCase del backend.
   factory Categoria.fromJson(Map<String, dynamic> json) => Categoria(
-        id: (json['Id'] as num).toInt(),
-        nombre: json['Nombre'] as String,
-        descripcion: json['Descripcion'] as String?,
+        id: ((json['Id'] ?? json['id']) as num).toInt(),
+        nombre: (json['Nombre'] ?? json['nombre']) as String,
+        descripcion: (json['Descripcion'] ?? json['descripcion']) as String?,
       );
 
   /// Serializa para POST/PUT — el backend acepta PascalCase.

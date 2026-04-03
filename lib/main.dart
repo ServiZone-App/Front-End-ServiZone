@@ -5,6 +5,7 @@ import 'package:servizone_app/core/themes/app_theme.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:servizone_app/core/locator.dart';
 import 'package:servizone_app/core/network/api_client.dart';
+import 'package:servizone_app/data/providers/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +20,8 @@ void main() async {
 
   final navigatorKey = GlobalKey<NavigatorState>();
   void handleSessionExpired() {
+    // Limpiar estado interno de AuthService para evitar sesión fantasma
+    locator<AuthService>().logout();
     navigatorKey.currentState?.pushNamedAndRemoveUntil(
       AppRoutes.login,
       (route) => false,

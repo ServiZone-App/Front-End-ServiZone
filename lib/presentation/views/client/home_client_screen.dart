@@ -9,12 +9,11 @@ import 'package:servizone_app/data/providers/auth_service.dart';
 import 'package:servizone_app/data/providers/catalog_notifier.dart';
 import 'package:servizone_app/presentation/views/client/services/subcategory_screen.dart';
 import 'package:servizone_app/presentation/views/client/profile/client_profile_screen.dart';
-import 'package:servizone_app/presentation/views/client/client_requests_screen.dart';
 import 'package:servizone_app/presentation/views/client/client_bookings_screen.dart';
 
 class HomeClientScreen extends StatefulWidget {
   final int initialIndex;
-  const HomeClientScreen({super.key, this.initialIndex = 2});
+  const HomeClientScreen({super.key, this.initialIndex = 1});
 
   @override
   State<HomeClientScreen> createState() => _HomeClientScreenState();
@@ -76,14 +75,13 @@ class _HomeClientScreenState extends State<HomeClientScreen>
   Widget build(BuildContext context) {
     final List<Widget> screens = [
       _buildReservasScreen(),
-      _buildSolicitudesTab(),
       _buildServiciosScreen(),
       _buildAccountScreen(),
     ];
 
     return Scaffold(
       backgroundColor: backgroundGray,
-      appBar: (_currentIndex == 3)
+      appBar: (_currentIndex == 2)
           ? AppBar(
               title: const Text("Perfil",
                   style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
@@ -126,18 +124,10 @@ class _HomeClientScreenState extends State<HomeClientScreen>
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.calendar_today_rounded), label: "Reservas"),
-          BottomNavigationBarItem(icon: Icon(Icons.assignment_rounded), label: "Solicitudes"),
           BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: "Servicios"),
           BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: "Perfil"),
         ],
       ),
-    );
-  }
-
-  Widget _buildSolicitudesTab() {
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: SlideTransition(position: _slideAnimation, child: const ClientRequestsScreen()),
     );
   }
 

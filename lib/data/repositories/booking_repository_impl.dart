@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:servizone_app/core/network/api_client.dart';
 import 'package:servizone_app/core/network/api_result.dart';
 import 'package:servizone_app/data/mappers/booking_mapper.dart';
@@ -43,7 +44,8 @@ class BookingRepositoryImpl implements BookingRepository {
     if (body.trim().isEmpty) return null;
     try {
       return jsonDecode(body);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[BookingRepo] jsonDecode error: $e');
       return null;
     }
   }
@@ -66,7 +68,9 @@ class BookingRepositoryImpl implements BookingRepository {
         if (msg != null) return msg.toString();
       }
       if (decoded is String) return decoded;
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[BookingRepo] _parseMessage error: $e');
+    }
     if (sc == 404) return 'Recurso no encontrado.';
     if (sc == 401) return 'Sesión expirada. Inicia sesión nuevamente.';
     if (sc == 403) return 'No tienes permisos para esta operación.';

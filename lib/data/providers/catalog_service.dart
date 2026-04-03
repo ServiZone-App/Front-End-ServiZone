@@ -286,6 +286,7 @@ class CatalogService {
           'TipoServicioId': tipoServicioId,
           'PrecioBase': precioBase,
           'Estado': estado,
+          'EstaActivo': estado,
         }),
         fromItem: (e) => ServicioProveedor.fromJson(e as Map<String, dynamic>),
       );
@@ -321,6 +322,7 @@ class CatalogService {
           'TipoServicioId': tipoServicioId,
           'PrecioBase': precioBase,
           'Estado': estado,
+          'EstaActivo': estado,
         }),
         fromItem: (e) => ServicioProveedor.fromJson(e as Map<String, dynamic>),
       );
@@ -517,7 +519,9 @@ class CatalogService {
         try {
           return ApiResult.success(
               data: [fromItem(rawData)], statusCode: sc);
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[CatalogService] rawData no es lista ni item válido: $e');
+        }
       }
       return ApiResult.failure(
           message: 'Los datos recibidos no tienen el formato esperado.',

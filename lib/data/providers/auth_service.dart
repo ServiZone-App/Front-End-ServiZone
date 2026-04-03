@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:servizone_app/core/constants/app_constants.dart';
 import 'package:servizone_app/core/network/api_client.dart';
 import 'package:http/http.dart' as http;
 
@@ -21,8 +22,8 @@ class AuthService {
 
   Future<bool> autoLogin() async {
     final results = await Future.wait([
-      _storage.read(key: 'token'),
-      _storage.read(key: 'role'),
+      _storage.read(key: StorageKeys.token),
+      _storage.read(key: StorageKeys.role),
     ]);
     final token = results[0];
     final role = results[1];
@@ -31,13 +32,21 @@ class AuthService {
       _currentRole = role;
       
       final res = await fetchAndStoreProfile();
-      bool isValid = res['success'];
-      bool isAuthError = res['statusCode'] == 401 || res['statusCode'] == 403;
-      
-      if (isValid || !isAuthError) {
+      final bool isValid = res['success'] == true;
+      final int statusCode = res['statusCode'] is int ? res['statusCode'] as int : 0;
+      final bool isAuthError = statusCode == 401 || statusCode == 403;
+
+      if (isValid) {
+        // Perfil obtenido correctamente — sesión válida
         _isLoggedIn = true;
         return true;
+      } else if (isAuthError) {
+        // Token expirado o sin permisos — cerrar sesión
+        await logout();
+        return false;
       } else {
+        // Error de red o del servidor (500, timeout, etc.)
+        // No cerrar sesión pero tampoco autenticar automáticamente
         await logout();
         return false;
       }
@@ -75,15 +84,15 @@ class AuthService {
         final data = jsonDecode(response.body);
         if (data['accessToken'] != null) {
           final accessToken = data['accessToken']?.toString() ?? '';
-          await _storage.write(key: 'token', value: accessToken);
+          await _storage.write(key: StorageKeys.token, value: accessToken);
           
           final roleStr = data['role']?.toString().toLowerCase() ?? 'cliente';
-          await _storage.write(key: 'role', value: roleStr);
+          await _storage.write(key: StorageKeys.role, value: roleStr);
 
           final payload = parseJwt(accessToken);
           final userId = payload['nameid']?.toString();
           if (userId != null && userId.isNotEmpty) {
-            await _storage.write(key: 'userId', value: userId);
+            await _storage.write(key: StorageKeys.userId, value: userId);
           }
           
           if (data['rolesDisponibles'] is List) {
@@ -148,19 +157,19 @@ class AuthService {
         }
 
         // Reemplazar tokens
-        await _storage.delete(key: 'token');
-        await _storage.write(key: 'token', value: newToken);
+        await _storage.delete(key: StorageKeys.token);
+        await _storage.write(key: StorageKeys.token, value: newToken);
 
         final payload = parseJwt(newToken);
         final userId = payload['nameid']?.toString();
         if (userId != null && userId.isNotEmpty) {
-          await _storage.write(key: 'userId', value: userId);
+          await _storage.write(key: StorageKeys.userId, value: userId);
         }
 
         final String finalRole = newActiveRole != null
             ? newActiveRole.toLowerCase()
             : targetRole.toLowerCase();
-        await _storage.write(key: 'role', value: finalRole);
+        await _storage.write(key: StorageKeys.role, value: finalRole);
         _currentRole = finalRole;
 
         if (data['rolesDisponibles'] is List) {
@@ -227,13 +236,14 @@ class AuthService {
       final decoded = utf8.decode(base64Url.decode(normalized));
       final json = jsonDecode(decoded);
       return json is Map<String, dynamic> ? json : {};
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[AuthService] JWT parse error: $e');
       return {};
     }
   }
 
   Future<int?> getCurrentProveedorId() async {
-    final storedUserId = await _storage.read(key: 'userId');
+    final storedUserId = await _storage.read(key: StorageKeys.userId);
     final storedParsed = _tryParseInt(storedUserId);
     if (storedParsed != null) return storedParsed;
 
@@ -256,7 +266,7 @@ class AuthService {
       }
     }
 
-    final token = await _storage.read(key: 'token');
+    final token = await _storage.read(key: StorageKeys.token);
     if (token == null || token.isEmpty) return null;
     final payload = parseJwt(token);
     final claim = _tryParseInt(payload['nameid'] ?? payload['NameId'] ?? payload['sub']);
@@ -264,7 +274,7 @@ class AuthService {
   }
 
   Future<int?> getCurrentClienteId() async {
-    final storedUserId = await _storage.read(key: 'userId');
+    final storedUserId = await _storage.read(key: StorageKeys.userId);
     final storedParsed = _tryParseInt(storedUserId);
     if (storedParsed != null) return storedParsed;
 
@@ -287,7 +297,7 @@ class AuthService {
       }
     }
 
-    final token = await _storage.read(key: 'token');
+    final token = await _storage.read(key: StorageKeys.token);
     if (token == null || token.isEmpty) return null;
     final payload = parseJwt(token);
     final claim = _tryParseInt(payload['nameid'] ?? payload['NameId'] ?? payload['sub']);
@@ -388,7 +398,7 @@ class AuthService {
       final uri = Uri.parse('${_apiClient.baseUrl}/Solicitud/Enviar_Solicitud');
       final request = http.MultipartRequest('POST', uri);
 
-      final token = await _storage.read(key: 'token');
+      final token = await _storage.read(key: StorageKeys.token);
       if (token != null && token.isNotEmpty) {
         request.headers['Authorization'] = 'Bearer $token';
       }
@@ -427,11 +437,11 @@ class AuthService {
   }
 
   Future<void> logout() async {
-    await _storage.delete(key: 'accessToken');
-    await _storage.delete(key: 'refreshToken');
-    await _storage.delete(key: 'token');
-    await _storage.delete(key: 'role');
-    await _storage.delete(key: 'userId');
+    await _storage.delete(key: StorageKeys.accessToken);
+    await _storage.delete(key: StorageKeys.refreshToken);
+    await _storage.delete(key: StorageKeys.token);
+    await _storage.delete(key: StorageKeys.role);
+    await _storage.delete(key: StorageKeys.userId);
     _isLoggedIn = false;
     _currentRole = null;
     currentUserProfile = null;

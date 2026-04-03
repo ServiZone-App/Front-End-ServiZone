@@ -1,4 +1,4 @@
-/// Modelo de Subcategoría — serialización exclusiva PascalCase (backend .NET).
+/// Modelo de Subcategoría — soporta PascalCase y camelCase del backend.
 class Subcategoria {
   final int id;
   final String nombre;
@@ -12,12 +12,11 @@ class Subcategoria {
     required this.categoriaId,
   });
 
-  /// Construye desde JSON con claves PascalCase del backend.
   factory Subcategoria.fromJson(Map<String, dynamic> json) => Subcategoria(
-        id: (json['Id'] as num).toInt(),
-        nombre: json['Nombre'] as String,
-        descripcion: json['Descripcion'] as String?,
-        categoriaId: (json['CategoriaId'] as num).toInt(),
+        id: ((json['Id'] ?? json['id']) as num).toInt(),
+        nombre: (json['Nombre'] ?? json['nombre']) as String,
+        descripcion: (json['Descripcion'] ?? json['descripcion']) as String?,
+        categoriaId: ((json['CategoriaId'] ?? json['categoriaId']) as num).toInt(),
       );
 
   /// Serializa para POST/PUT — el backend acepta PascalCase.

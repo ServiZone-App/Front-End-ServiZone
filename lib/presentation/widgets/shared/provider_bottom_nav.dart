@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
-import 'package:servizone_app/core/routes/app_routes.dart';
 
-// Importa las vistas correspondientes, puedes usar navigator directamente.
 import 'package:servizone_app/presentation/views/provider/provider_home_screen.dart';
 import 'package:servizone_app/presentation/views/provider/services/provider_services_screen.dart';
 import 'package:servizone_app/presentation/views/provider/provider_requests_view.dart';
 import 'package:servizone_app/presentation/views/provider/provider_bookings_screen.dart';
 import 'package:servizone_app/presentation/views/provider/profile/provider_profile_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ProviderBottomNav extends StatelessWidget {
   final int currentIndex;
@@ -35,15 +32,7 @@ class ProviderBottomNav extends StatelessWidget {
         targetScreen = const ProviderBookingsScreen();
         break;
       case 4:
-        targetScreen = ProviderProfileScreen(
-          onLogout: () async {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.clear();
-            if (context.mounted) {
-              Navigator.pushReplacementNamed(context, AppRoutes.login);
-            }
-          },
-        );
+        targetScreen = const ProviderProfileScreen();
         break;
       default:
         targetScreen = const ProviderHomeScreen();

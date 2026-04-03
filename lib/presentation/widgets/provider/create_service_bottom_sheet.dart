@@ -232,7 +232,7 @@ class _CreateServiceBottomSheetState extends State<CreateServiceBottomSheet> {
                   ? const _LoadingIndicator()
                   : DropdownButtonFormField<Categoria>(
                       isExpanded: true,
-                      initialValue: _selectedCategoria,
+                      value: _selectedCategoria,
                       decoration: _inputDeco('Seleccionar...', Icons.category_rounded),
                       items: _categorias
                           .map((c) => DropdownMenuItem<Categoria>(
@@ -253,7 +253,7 @@ class _CreateServiceBottomSheetState extends State<CreateServiceBottomSheet> {
                   ? const _LoadingIndicator()
                   : DropdownButtonFormField<Subcategoria>(
                       isExpanded: true,
-                      initialValue: _selectedSubcategoria,
+                      value: _selectedSubcategoria,
                       decoration: _inputDeco(
                           _selectedCategoria == null
                               ? 'Primero selecciona categoría'
@@ -280,7 +280,7 @@ class _CreateServiceBottomSheetState extends State<CreateServiceBottomSheet> {
                   ? const _LoadingIndicator()
                   : DropdownButtonFormField<TipoServicio>(
                       isExpanded: true,
-                      initialValue: _selectedTipo,
+                      value: _selectedTipo,
                       decoration: _inputDeco(
                           _selectedSubcategoria == null
                               ? 'Primero selecciona subcategoría'

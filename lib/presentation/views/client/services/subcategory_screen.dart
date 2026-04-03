@@ -51,7 +51,7 @@ class _SubcategoryScreenState extends State<SubcategoryScreen> {
 
   void _navigateToHomeWithIndex(int index) {
     if (widget.isGuest) {
-      if (index == 2) {
+      if (index == 1) {
         Navigator.pop(context);
       } else {
         _showLoginRequiredDialog();
@@ -285,10 +285,10 @@ class _SubcategoryScreenState extends State<SubcategoryScreen> {
         ],
       ),
       child: BottomNavigationBar(
-        currentIndex: 2,
+        currentIndex: 1,
         onTap: (index) {
           HapticFeedback.lightImpact();
-          if (index == 2) return;
+          if (index == 1) return;
           _navigateToHomeWithIndex(index);
         },
         backgroundColor: Colors.transparent,
@@ -303,8 +303,6 @@ class _SubcategoryScreenState extends State<SubcategoryScreen> {
         items: const [
           BottomNavigationBarItem(
               icon: Icon(Icons.calendar_today_rounded), label: "Reservas"),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.assignment_rounded), label: "Solicitudes"),
           BottomNavigationBarItem(
               icon: Icon(Icons.grid_view_rounded), label: "Servicios"),
           BottomNavigationBarItem(

@@ -1,4 +1,4 @@
-/// Modelo de Tipo de Servicio — serialización exclusiva PascalCase (backend .NET).
+/// Modelo de Tipo de Servicio — soporta PascalCase y camelCase del backend.
 class TipoServicio {
   final int id;
   final String nombre;
@@ -12,12 +12,11 @@ class TipoServicio {
     required this.subcategoriaId,
   });
 
-  /// Construye desde JSON con claves PascalCase del backend.
   factory TipoServicio.fromJson(Map<String, dynamic> json) => TipoServicio(
-        id: (json['Id'] as num).toInt(),
-        nombre: json['Nombre'] as String,
-        descripcion: json['Descripcion'] as String?,
-        subcategoriaId: (json['SubcategoriaId'] as num).toInt(),
+        id: ((json['Id'] ?? json['id']) as num).toInt(),
+        nombre: (json['Nombre'] ?? json['nombre']) as String,
+        descripcion: (json['Descripcion'] ?? json['descripcion']) as String?,
+        subcategoriaId: ((json['SubcategoriaId'] ?? json['subcategoriaId']) as num).toInt(),
       );
 
   /// Serializa para POST/PUT — el backend acepta PascalCase.

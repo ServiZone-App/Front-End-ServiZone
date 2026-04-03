@@ -11,9 +11,7 @@ import 'package:servizone_app/presentation/views/common/booking_history_screen.d
 import 'package:servizone_app/presentation/widgets/shared/provider_bottom_nav.dart';
 
 class ProviderProfileScreen extends StatefulWidget {
-  final VoidCallback onLogout;
-
-  const ProviderProfileScreen({super.key, required this.onLogout});
+  const ProviderProfileScreen({super.key});
 
   @override
   State<ProviderProfileScreen> createState() => _ProviderProfileScreenState();
@@ -45,6 +43,17 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     if (parts.isEmpty) return 'U';
     if (parts.length == 1) return parts[0].substring(0, 1).toUpperCase();
     return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
+  }
+
+  Future<void> _performLogout() async {
+    await locator<AuthService>().logout();
+    if (mounted) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.login,
+        (route) => false,
+      );
+    }
   }
 
   void _showChangeRoleConfirmation() {
@@ -85,7 +94,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 );
               } else {
                 if (result['statusCode'] == 401) {
-                  widget.onLogout();
+                  await _performLogout();
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -340,7 +349,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
-              widget.onLogout();
+              _performLogout();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: errorRed,

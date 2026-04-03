@@ -26,10 +26,10 @@ class BookingMapper {
   }
 
   static BookingModel fromJson(Map<String, dynamic> json) {
-    final id = (json['id'] ?? json['Id'] ?? json['bookingId'] ?? json['BookingId']).toString();
+    final id = (json['id'] ?? json['Id'] ?? json['bookingId'] ?? json['BookingId'] ?? '').toString();
 
-    final clientId = (json['clientId'] ?? json['ClienteId'] ?? json['clienteId'] ?? json['ClientId']).toString();
-    final providerId = (json['providerId'] ?? json['ProveedorId'] ?? json['proveedorId'] ?? json['ProviderId']).toString();
+    final clientId = (json['clientId'] ?? json['ClienteId'] ?? json['clienteId'] ?? json['ClientId'] ?? '').toString();
+    final providerId = (json['providerId'] ?? json['ProveedorId'] ?? json['proveedorId'] ?? json['ProviderId'] ?? '').toString();
 
     final clientName = (json['clientName'] ?? json['ClienteNombre'] ?? json['clienteNombre'] ?? json['ClientName'] ?? '').toString();
     final providerName = (json['providerName'] ?? json['ProveedorNombre'] ?? json['proveedorNombre'] ?? json['ProviderName'])?.toString();

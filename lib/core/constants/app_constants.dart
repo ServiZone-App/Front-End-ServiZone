@@ -27,6 +27,17 @@ const Color lightGray = Color(0xFFF8F9FA);
 const Color mediumGray = Color(0xFF8E8E93);
 const Color cardShadow = Color(0x1A000000);
 
+// ------------------- CLAVES DE ALMACENAMIENTO SEGURO -------------------
+
+class StorageKeys {
+  StorageKeys._();
+  static const String token = 'token';
+  static const String role = 'role';
+  static const String userId = 'userId';
+  static const String accessToken = 'accessToken';
+  static const String refreshToken = 'refreshToken';
+}
+
 // ------------------- SISTEMA DE TIPOGRAFÍA -------------------
 
 const String fontFamilyPoppins = 'Poppins';

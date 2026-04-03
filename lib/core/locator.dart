@@ -42,5 +42,5 @@ void setupLocator() {
 
   locator.registerFactory<AuthViewModel>(() => AuthViewModel(locator<AuthRepository>()));
   locator.registerFactory<CatalogViewModel>(() => CatalogViewModel(locator<CatalogRepository>()));
-  locator.registerFactory<BookingViewModel>(() => BookingViewModel(locator<BookingRepository>()));
+  locator.registerLazySingleton<BookingViewModel>(() => BookingViewModel(locator<BookingRepository>()));
 }

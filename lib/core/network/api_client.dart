@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart'; // Para kIsWeb
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:servizone_app/core/constants/app_constants.dart';
 
 class ApiClient extends http.BaseClient {
   final String baseUrl;
@@ -49,7 +50,7 @@ class ApiClient extends http.BaseClient {
         final attemptRequest =
             retryCount == 0 ? originalRequest : _cloneRequest(originalRequest);
 
-        final token = await _storage.read(key: 'token');
+        final token = await _storage.read(key: StorageKeys.token);
         attemptRequest.headers['Accept'] = 'application/json';
         if (attemptRequest is! http.MultipartRequest) {
           attemptRequest.headers['Content-Type'] = 'application/json';
@@ -142,9 +143,11 @@ class ApiClient extends http.BaseClient {
   }
 
   Future<void> _clearSession() async {
-    await _storage.delete(key: 'token');
-    await _storage.delete(key: 'role');
-    await _storage.delete(key: 'userId');
+    await _storage.delete(key: StorageKeys.token);
+    await _storage.delete(key: StorageKeys.role);
+    await _storage.delete(key: StorageKeys.userId);
+    await _storage.delete(key: StorageKeys.accessToken);
+    await _storage.delete(key: StorageKeys.refreshToken);
   }
 
   // Helpers HTTP
