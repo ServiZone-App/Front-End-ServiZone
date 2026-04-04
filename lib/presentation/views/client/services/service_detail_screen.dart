@@ -13,86 +13,19 @@ class ServiceDetailScreen extends StatefulWidget {
   State<ServiceDetailScreen> createState() => _ServiceDetailScreenState();
 }
 
-class _ServiceDetailScreenState extends State<ServiceDetailScreen> with SingleTickerProviderStateMixin {
+class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   BookingState _bookingState = BookingState.idle;
-  String? _errorMessage;
-  late AnimationController _expansionController;
-  late Animation<double> _expansionAnimation;
 
-  @override
-  void initState() {
-    super.initState();
-    _expansionController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _expansionAnimation = CurvedAnimation(
-      parent: _expansionController,
-      curve: Curves.easeInOut,
-    );
-  }
-
-  @override
-  void dispose() {
-    _expansionController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _startBookingFlow() async {
-    setState(() {
-      _bookingState = BookingState.checkingAvailability;
-    });
-
-    // Simular validación asíncrona de disponibilidad (API REST mock)
+  Future<void> _solicitarReserva() async {
+    if (_bookingState == BookingState.processing) return;
+    setState(() => _bookingState = BookingState.processing);
     try {
       await Future.delayed(const Duration(seconds: 1));
-      
-      // Mock de error aleatorio (4xx/5xx)
-      // if (DateTime.now().second % 5 == 0) throw 'Error de red (500)';
-
-      setState(() {
-        _bookingState = BookingState.confirming;
-      });
-      _expansionController.forward();
-    } catch (e) {
-      setState(() {
-        _bookingState = BookingState.error;
-        _errorMessage = e.toString();
-      });
-    }
-  }
-
-  Future<void> _confirmBooking() async {
-    setState(() {
-      _bookingState = BookingState.processing;
-    });
-
-    // Simular guardado en backend
-    try {
-      await Future.delayed(const Duration(seconds: 2));
-      setState(() {
-        _bookingState = BookingState.success;
-      });
-      
-      // Feedback táctil y visual
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('¡Reserva confirmada exitosamente!'),
-            backgroundColor: successGreen,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _bookingState = BookingState.error;
-        _errorMessage = 'No se pudo procesar la reserva. Reintento automático en curso...';
-      });
-      // Simular reintento automático
-      await Future.delayed(const Duration(seconds: 3));
-      _confirmBooking();
+      if (!mounted) return;
+      setState(() => _bookingState = BookingState.idle);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _bookingState = BookingState.idle);
     }
   }
 
@@ -149,7 +82,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> with SingleTi
               _buildRatingRow(),
               const SizedBox(height: 24),
 
-              // Componente de Reserva Dinámico
+              // Solicitud de reserva
               _buildBookingComponent(),
 
               const SizedBox(height: 32),
@@ -233,193 +166,32 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> with SingleTi
   }
 
   Widget _buildBookingComponent() {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: _bookingState == BookingState.idle || _bookingState == BookingState.checkingAvailability
-          ? _buildInitialButton()
-          : _buildEmbeddedConfirmation(),
-    );
-  }
-
-  Widget _buildInitialButton() {
     return SizedBox(
-      key: const ValueKey('initial_button'),
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: _bookingState == BookingState.checkingAvailability ? null : _startBookingFlow,
+        onPressed: _bookingState == BookingState.processing ? null : _solicitarReserva,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF43A047),
           foregroundColor: Colors.white,
           shape: const StadiumBorder(),
           elevation: 0,
         ),
-        child: _bookingState == BookingState.checkingAvailability
+        child: _bookingState == BookingState.processing
             ? const SizedBox(
                 height: 24,
                 width: 24,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                child:
+                    CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
               )
             : const Text(
-                'Reservar Ahora',
-                style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.bold),
+                'Solicitar reserva',
+                style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold),
               ),
       ),
-    );
-  }
-
-  Widget _buildEmbeddedConfirmation() {
-    final now = DateTime.now();
-    final bookingDate = now.add(const Duration(days: 1));
-
-    return Column(
-      key: const ValueKey('confirmation_panel'),
-      children: [
-        SizeTransition(
-          sizeFactor: _expansionAnimation,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: primaryBlue.withValues(alpha: 0.3)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Verificación de disponibilidad exitosa',
-                  style: TextStyle(color: successGreen, fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                _buildConfirmRow('Fecha:', DateFormat('dd MMM yyyy').format(bookingDate)),
-                _buildConfirmRow('Hora:', '10:30 AM'),
-                _buildConfirmRow('Duración:', '60 min'),
-                _buildConfirmRow('Total:', '\$${NumberFormat('#,###').format(widget.service['price'])}', isTotal: true),
-                const Divider(height: 24),
-                const Text(
-                  'Política: Cancelación gratuita hasta 24h antes.',
-                  style: TextStyle(fontSize: 12, color: textGray),
-                ),
-                const SizedBox(height: 20),
-                if (_bookingState == BookingState.error)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(_errorMessage ?? 'Error desconocido', style: const TextStyle(color: Colors.red, fontSize: 13)),
-                  ),
-                _buildFinalActionButtons(),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildConfirmRow(String label, String value, {bool isTotal = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: textGray, fontSize: 14)),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: isTotal ? primaryBlue : Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFinalActionButtons() {
-    if (_bookingState == BookingState.success) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(color: successGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.check_circle_outline, color: successGreen),
-            SizedBox(width: 8),
-            Text('¡Reserva Confirmada!', style: TextStyle(color: successGreen, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      );
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 250) {
-          // Fallback for very narrow screens
-          return Column(
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: _bookingState == BookingState.processing ? null : () {
-                    _expansionController.reverse().then((_) {
-                      setState(() => _bookingState = BookingState.idle);
-                    });
-                  },
-                  style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  child: const Text('Modificar'),
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _bookingState == BookingState.processing ? null : _confirmBooking,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryBlue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: _bookingState == BookingState.processing
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Confirmar'),
-                ),
-              ),
-            ],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _bookingState == BookingState.processing ? null : () {
-                  _expansionController.reverse().then((_) {
-                    setState(() => _bookingState = BookingState.idle);
-                  });
-                },
-                style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: const Text('Modificar'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _bookingState == BookingState.processing ? null : _confirmBooking,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryBlue,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: _bookingState == BookingState.processing
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Confirmar'),
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 
