@@ -293,6 +293,62 @@ class AuthService {
     }
   }
 
+  bool _isProfileReloginResponse(http.Response response) {
+    if (response.statusCode != 401) return false;
+    final raw = response.body.trim();
+    if (raw.isEmpty) return false;
+    try {
+      final decoded = jsonDecode(raw);
+      dynamic body = decoded;
+      if (decoded is Map &&
+          (decoded.containsKey('Data') || decoded.containsKey('data'))) {
+        body = decoded['Data'] ?? decoded['data'];
+      }
+      if (body is Map) {
+        final code = (body['code'] ??
+                body['Code'] ??
+                body['errorCode'] ??
+                body['ErrorCode'])
+            ?.toString()
+            .toUpperCase();
+        if (code == null || code.isEmpty) return false;
+        return code == 'PROFILE_UPDATED_RELOGIN' ||
+            code == 'RELOGIN_REQUIRED' ||
+            code == 'SESSION_REVOKED';
+      }
+    } catch (_) {}
+    final lowered = raw.toLowerCase();
+    return lowered.contains('relogin') ||
+        lowered.contains('inicia sesión') ||
+        lowered.contains('iniciar sesion') ||
+        lowered.contains('sesión') ||
+        lowered.contains('sesion');
+  }
+
+  String _profileReloginMessage(http.Response response) {
+    final raw = response.body.trim();
+    if (raw.isEmpty) {
+      return 'Actualizaste tu información. Por seguridad debes iniciar sesión nuevamente.';
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      dynamic body = decoded;
+      if (decoded is Map &&
+          (decoded.containsKey('Data') || decoded.containsKey('data'))) {
+        body = decoded['Data'] ?? decoded['data'];
+      }
+      if (body is Map) {
+        final msg = (body['message'] ??
+                body['Message'] ??
+                body['error'] ??
+                body['Error'])
+            ?.toString();
+        if (msg != null && msg.trim().isNotEmpty) return msg.trim();
+      }
+    } catch (_) {}
+    return 'Actualizaste tu información. Por seguridad debes iniciar sesión nuevamente.';
+  }
+
   Future<int?> getCurrentProveedorId() async {
     final storedUserId = await _storage.read(key: StorageKeys.userId);
     final storedParsed = _tryParseInt(storedUserId);
@@ -400,8 +456,35 @@ class AuthService {
       
       if (response.statusCode >= 200 && response.statusCode < 300) {
         await _persistTokenFromResponse(response);
-        await fetchAndStoreProfile();
-        return {'success': true};
+        final profileRes = await fetchAndStoreProfile();
+        final sc = profileRes['statusCode'] is int ? profileRes['statusCode'] as int : null;
+        if (profileRes['success'] == true) {
+          return {'success': true};
+        }
+        if (sc == 401) {
+          await logout();
+          return {
+            'success': false,
+            'statusCode': 401,
+            'requiresRelogin': true,
+            'message': 'Actualizaste tu información. Por seguridad debes iniciar sesión nuevamente.',
+          };
+        }
+        return {
+          'success': false,
+          'statusCode': sc ?? 0,
+          'message': profileRes['message'] ?? 'No se pudo refrescar el perfil.',
+        };
+      }
+
+      if (_isProfileReloginResponse(response)) {
+        await logout();
+        return {
+          'success': false,
+          'statusCode': 401,
+          'requiresRelogin': true,
+          'message': _profileReloginMessage(response),
+        };
       }
       
       // Solo en caso de error 401 real de autenticación (no un error de negocio),
@@ -427,8 +510,35 @@ class AuthService {
       
       if (response.statusCode >= 200 && response.statusCode < 300) {
         await _persistTokenFromResponse(response);
-        await fetchAndStoreProfile();
-        return {'success': true};
+        final profileRes = await fetchAndStoreProfile();
+        final sc = profileRes['statusCode'] is int ? profileRes['statusCode'] as int : null;
+        if (profileRes['success'] == true) {
+          return {'success': true};
+        }
+        if (sc == 401) {
+          await logout();
+          return {
+            'success': false,
+            'statusCode': 401,
+            'requiresRelogin': true,
+            'message': 'Actualizaste tu información. Por seguridad debes iniciar sesión nuevamente.',
+          };
+        }
+        return {
+          'success': false,
+          'statusCode': sc ?? 0,
+          'message': profileRes['message'] ?? 'No se pudo refrescar el perfil.',
+        };
+      }
+
+      if (_isProfileReloginResponse(response)) {
+        await logout();
+        return {
+          'success': false,
+          'statusCode': 401,
+          'requiresRelogin': true,
+          'message': _profileReloginMessage(response),
+        };
       }
       
       return {
