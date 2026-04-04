@@ -127,24 +127,29 @@ class _SubcategoryScreenState extends State<SubcategoryScreen> {
                 borderRadius: BorderRadius.circular(25),
                 boxShadow: const [BoxShadow(color: cardShadow, blurRadius: 8)],
               ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (v) => setState(() => _searchQuery = v),
-                decoration: InputDecoration(
-                  hintText: 'Buscar subcategoría...',
-                  hintStyle: const TextStyle(color: textGray),
-                  prefixIcon: const Icon(Icons.search_rounded, color: textGray),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, color: textGray),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _searchQuery = '');
-                          },
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(25),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar subcategoría...',
+                    hintStyle: const TextStyle(color: textGray),
+                    prefixIcon:
+                        const Icon(Icons.search_rounded, color: textGray),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon:
+                                const Icon(Icons.clear_rounded, color: textGray),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                 ),
               ),
             ),
