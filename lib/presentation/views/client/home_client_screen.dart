@@ -53,8 +53,8 @@ class _HomeClientScreenState extends State<HomeClientScreen>
     _catalogNotifier = locator<CatalogNotifier>();
     _catalogNotifier.addListener(_onCatalogChanged);
 
-    // Cargar categorías (el notifier evita llamadas duplicadas)
-    _catalogNotifier.loadCategorias();
+    // Cargar categorías
+    _catalogNotifier.loadCategorias(forceRefresh: true);
   }
 
   @override
