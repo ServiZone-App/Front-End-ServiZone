@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
 import 'package:servizone_app/core/locator.dart';
+import 'package:servizone_app/core/routes/app_routes.dart';
 import 'package:servizone_app/data/providers/auth_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -25,6 +26,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isLoading = false;
   bool _showSuccess = false;
   bool _showError = false;
+  bool _isReloginModal = false;
   String _errorMessage = 'Error al actualizar';
 
   @override
@@ -83,6 +85,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _userEmail = _emailController.text.trim();
           _userPhone = _phoneController.text.trim();
           _showSuccess = true;
+          _isReloginModal = false;
         });
         
         // Recargar datos desde el perfil para asegurar consistencia
@@ -92,14 +95,38 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           if (mounted) setState(() => _showSuccess = false);
         });
       } else {
+        if (result['requiresRelogin'] == true) {
+          setState(() {
+            _showError = true;
+            _isReloginModal = true;
+            _errorMessage = result['message'] ??
+                'Actualizaste tu información. Por seguridad debes iniciar sesión nuevamente.';
+          });
+          Future.delayed(const Duration(seconds: 5), () {
+            if (!mounted) return;
+            Navigator.pushNamedAndRemoveUntil(
+                context, AppRoutes.login, (route) => false);
+          });
+          return;
+        }
+
         // Solo redirigir al login si el error es 401 Unauthorized (token expirado y refresh falló)
         if (result['statusCode'] == 401) {
-          // El ApiClient ya disparó onSessionExpired, pero podemos forzar navegación si es necesario
+          setState(() {
+            _showError = true;
+            _isReloginModal = false;
+            _errorMessage =
+                result['message'] ?? 'Tu sesión no es válida. Inicia sesión nuevamente.';
+          });
+          Future.delayed(const Duration(seconds: 3), () {
+            if (mounted) setState(() => _showError = false);
+          });
           return;
         }
 
         setState(() {
           _showError = true;
+          _isReloginModal = false;
           _errorMessage = result['message'] ?? 'Error al actualizar la información';
         });
         Future.delayed(const Duration(seconds: 3), () {
@@ -367,8 +394,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
           if (_showError)
             _buildModal(
-              icon: Icons.cancel,
-              color: Colors.red,
+              icon: _isReloginModal ? Icons.check_circle : Icons.cancel,
+              color: _isReloginModal ? successGreen : Colors.red,
               message: _errorMessage,
             ),
         ],
