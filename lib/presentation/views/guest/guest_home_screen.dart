@@ -38,7 +38,7 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
     // Compartir singleton con HomeClientScreen — sin segunda llamada HTTP
     _catalogNotifier = locator<CatalogNotifier>();
     _catalogNotifier.addListener(_onCatalogChanged);
-    _catalogNotifier.loadCategorias();
+    _catalogNotifier.loadCategorias(forceRefresh: true);
   }
 
   @override
