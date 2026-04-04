@@ -284,26 +284,30 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                   BoxShadow(color: cardShadow, blurRadius: 8)
                 ],
               ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (v) => setState(() => _searchQuery = v),
-                decoration: InputDecoration(
-                  hintText: 'Buscar el servicio que necesitas',
-                  hintStyle:
-                      const TextStyle(fontFamily: 'Roboto', color: textGray),
-                  prefixIcon:
-                      const Icon(Icons.search_rounded, color: textGray),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, color: textGray),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _searchQuery = '');
-                          },
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(25),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar el servicio que necesitas',
+                    hintStyle:
+                        const TextStyle(fontFamily: 'Roboto', color: textGray),
+                    prefixIcon:
+                        const Icon(Icons.search_rounded, color: textGray),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon:
+                                const Icon(Icons.clear_rounded, color: textGray),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                 ),
               ),
             ),
@@ -489,7 +493,8 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Proveedor #${service.proveedorId}',
+                    (service.proveedorNombre ?? 'Proveedor #${service.proveedorId}')
+                        .trim(),
                     style: const TextStyle(
                       fontFamily: 'Roboto',
                       fontSize: 14,
