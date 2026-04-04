@@ -64,6 +64,28 @@ abstract class CatalogVisuals {
     subtitle: 'Servicios',
   );
 
+  static int _stableHash(String input) {
+    var hash = 0;
+    for (final c in input.codeUnits) {
+      hash = 0x1fffffff & (hash + c);
+      hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
+      hash ^= (hash >> 6);
+    }
+    hash = 0x1fffffff & (hash + ((0x03ffffff & hash) << 3));
+    hash ^= (hash >> 11);
+    hash = 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
+    return hash;
+  }
+
+  static List<Color> _generatedCategoryGradient(String key) {
+    final h = _stableHash(key);
+    final hue1 = (h % 360).toDouble();
+    final hue2 = ((hue1 + 28) % 360);
+    final c1 = HSVColor.fromAHSV(1, hue1, 0.55, 0.92).toColor();
+    final c2 = HSVColor.fromAHSV(1, hue2, 0.55, 0.78).toColor();
+    return [c1, c2];
+  }
+
   // ── Subcategorías ───────────────────────────────────────────────
 
   static const _subcategoriaMap = <String, _SubVisualData>{
@@ -100,11 +122,18 @@ abstract class CatalogVisuals {
   static IconData categoryIcon(String nombre) =>
       (_categoriaMap[nombre.toLowerCase().trim()] ?? _default).icon;
 
-  static List<Color> categoryGradient(String nombre) =>
-      (_categoriaMap[nombre.toLowerCase().trim()] ?? _default).gradient;
+  static List<Color> categoryGradient(String nombre) {
+    final key = nombre.toLowerCase().trim();
+    final data = _categoriaMap[key];
+    return data?.gradient ?? _generatedCategoryGradient(key);
+  }
 
-  static Color categoryColor(String nombre) =>
-      (_categoriaMap[nombre.toLowerCase().trim()] ?? _default).color;
+  static Color categoryColor(String nombre) {
+    final key = nombre.toLowerCase().trim();
+    final data = _categoriaMap[key];
+    if (data != null) return data.color;
+    return categoryGradient(key).first;
+  }
 
   static String categorySubtitle(String nombre, {String? fallback}) =>
       (_categoriaMap[nombre.toLowerCase().trim()] ?? _default).subtitle ??
