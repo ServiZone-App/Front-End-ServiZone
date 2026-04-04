@@ -35,7 +35,7 @@ class _SubcategoryScreenState extends State<SubcategoryScreen> {
     _notifier = locator<CatalogNotifier>();
     _notifier.addListener(_onCatalogChanged);
     // El notifier tiene cache por id — llama a API solo si cambió la categoría
-    _notifier.loadSubcategorias(widget.categoriaId);
+    _notifier.loadSubcategorias(widget.categoriaId, forceRefresh: true);
   }
 
   @override
