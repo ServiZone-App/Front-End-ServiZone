@@ -78,8 +78,11 @@ class ApiClient extends http.BaseClient {
 
         // 3. Interceptar 401 Unauthorized
         if (response.statusCode == 401) {
-          await _clearSession();
-          onSessionExpired?.call();
+          final path = attemptRequest.url.path.toLowerCase();
+          if (!path.contains('/perfil/')) {
+            await _clearSession();
+            onSessionExpired?.call();
+          }
           return response;
         } 
         // 4. Interceptar 403 Forbidden
