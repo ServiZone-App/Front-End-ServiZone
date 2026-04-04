@@ -349,7 +349,8 @@ class _HomeClientScreenState extends State<HomeClientScreen>
         ],
         border: Border.all(color: Colors.grey.withValues(alpha: 0.1), width: 1),
       ),
-      child: Center(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
         child: TextField(
           controller: _searchController,
           onChanged: (value) => setState(() => searchQuery = value),
