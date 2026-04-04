@@ -25,7 +25,7 @@ abstract class CatalogRepository {
   Future<ApiResult<List<ServicioProveedor>>> getAllServiciosProveedor();
   Future<ApiResult<List<ServicioProveedor>>> buscarServiciosProveedor(String busqueda);
   Future<ApiResult<List<ServicioProveedor>>> getMisServicios();
-  Future<ApiResult<ServicioProveedor>> createMisServicioProveedor({required int tipoServicioId, required double precioBase, required bool estado});
-  Future<ApiResult<ServicioProveedor>> updateMisServicioProveedor(int id, {required int tipoServicioId, required double precioBase, required bool estado});
+  Future<ApiResult<ServicioProveedor>> createMisServicioProveedor({required int tipoServicioId, required double precioBase, required bool estado, String? descripcion});
+  Future<ApiResult<ServicioProveedor>> updateMisServicioProveedor(int id, {required int tipoServicioId, required double precioBase, required bool estado, String? descripcion});
   Future<ApiResult<void>> deleteMisServicioProveedor(int id);
 }
