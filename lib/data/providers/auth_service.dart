@@ -55,6 +55,8 @@ class AuthService {
   }
 
   Future<Map<String, dynamic>> fetchAndStoreProfile() async {
+    _currentRole ??=
+        (await _storage.read(key: StorageKeys.role))?.toLowerCase();
     if (_currentRole == 'cliente') {
       final res = await getPerfilCliente();
       if (res['success']) {
@@ -242,6 +244,55 @@ class AuthService {
     }
   }
 
+  Future<void> _persistTokenFromResponse(http.Response response) async {
+    String? token;
+
+    final authHeader = response.headers['authorization'] ??
+        response.headers['Authorization'];
+    if (authHeader != null && authHeader.trim().isNotEmpty) {
+      final v = authHeader.trim();
+      if (v.toLowerCase().startsWith('bearer ')) {
+        token = v.substring(7).trim();
+      } else {
+        token = v;
+      }
+    }
+
+    if (token == null || token.isEmpty) {
+      final raw = response.body.trim();
+      if (raw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(raw);
+          dynamic body = decoded;
+          if (decoded is Map &&
+              (decoded.containsKey('Data') || decoded.containsKey('data'))) {
+            body = decoded['Data'] ?? decoded['data'];
+          }
+          if (body is Map) {
+            token = (body['accessToken'] ??
+                    body['AccessToken'] ??
+                    body['token'] ??
+                    body['Token'])
+                ?.toString();
+          }
+        } catch (_) {}
+      }
+    }
+
+    final t = token?.trim();
+    if (t == null || t.isEmpty) return;
+
+    await _storage.write(key: StorageKeys.token, value: t);
+
+    final payload = parseJwt(t);
+    final userId = payload['nameid']?.toString() ??
+        payload['NameId']?.toString() ??
+        payload['sub']?.toString();
+    if (userId != null && userId.isNotEmpty) {
+      await _storage.write(key: StorageKeys.userId, value: userId);
+    }
+  }
+
   Future<int?> getCurrentProveedorId() async {
     final storedUserId = await _storage.read(key: StorageKeys.userId);
     final storedParsed = _tryParseInt(storedUserId);
@@ -348,6 +399,7 @@ class AuthService {
       final response = await _apiClient.patchRequest('/perfil/cliente', cleanedData);
       
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        await _persistTokenFromResponse(response);
         await fetchAndStoreProfile();
         return {'success': true};
       }
@@ -374,6 +426,7 @@ class AuthService {
       final response = await _apiClient.patchRequest('/perfil/proveedor', cleanedData);
       
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        await _persistTokenFromResponse(response);
         await fetchAndStoreProfile();
         return {'success': true};
       }
