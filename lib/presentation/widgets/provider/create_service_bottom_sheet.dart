@@ -39,6 +39,7 @@ class CreateServiceBottomSheet extends StatefulWidget {
 class _CreateServiceBottomSheetState extends State<CreateServiceBottomSheet> {
   final _formKey = GlobalKey<FormState>();
   final _precioController = TextEditingController();
+  final _descripcionController = TextEditingController();
 
   late final CatalogNotifier _notifier;
   late final CatalogService _service;
@@ -72,6 +73,7 @@ class _CreateServiceBottomSheetState extends State<CreateServiceBottomSheet> {
   @override
   void dispose() {
     _precioController.dispose();
+    _descripcionController.dispose();
     super.dispose();
   }
 
@@ -165,6 +167,9 @@ class _CreateServiceBottomSheetState extends State<CreateServiceBottomSheet> {
       tipoServicioId: _selectedTipo!.id,
       precioBase: precio,
       estado: _estado,
+      descripcion: _descripcionController.text.trim().isEmpty
+          ? null
+          : _descripcionController.text.trim(),
     );
 
     if (!mounted) return;
@@ -318,7 +323,21 @@ class _CreateServiceBottomSheetState extends State<CreateServiceBottomSheet> {
 
               const SizedBox(height: 16),
 
-              // 5. Estado
+              // 5. Descripción
+              const _SectionLabel('Descripción'),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _descripcionController,
+                keyboardType: TextInputType.multiline,
+                maxLines: 4,
+                maxLength: 500,
+                decoration: _inputDeco(
+                    'Describe el servicio (opcional)', Icons.description_rounded),
+              ),
+
+              const SizedBox(height: 16),
+
+              // 6. Estado
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(
