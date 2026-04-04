@@ -29,8 +29,7 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String _selectedSort = 'price_asc'; // Sin rating — usar precio por defecto
-  String? _selectedTipoNombre; // Tipo seleccionado para filtrar
-  int? _selectedTipoId;
+  bool _requestedServicios = false;
 
   late final CatalogNotifier _notifier;
 
@@ -40,7 +39,8 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
     _notifier = locator<CatalogNotifier>();
     _notifier.addListener(_onCatalogChanged);
     // Paso 1: cargar tipos de servicio para esta subcategoría
-    _notifier.loadTiposServicio(widget.subcategoriaId);
+    _notifier.loadTiposServicio(widget.subcategoriaId, forceRefresh: true);
+    _onCatalogChanged();
   }
 
   @override
@@ -52,34 +52,18 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
 
   void _onCatalogChanged() {
     if (!mounted) return;
-    // Paso 2: cuando tipos carguen exitosamente y no hay tipo seleccionado aún,
-    // cargar servicios del primer tipo disponible (sin N+1 — solo 1 llamada)
-    if (_notifier.tiposState == CatalogLoadState.success &&
-        _notifier.tipos.isNotEmpty &&
-        _selectedTipoId == null) {
-      final primerTipo = _notifier.tipos.first;
-      _selectedTipoId = primerTipo.id;
-      _selectedTipoNombre = primerTipo.nombre;
-      _notifier.buscarServicios('');
+    // Paso 2: cuando tipos carguen exitosamente, cargar servicios de TODOS los tipos.
+    if (!_requestedServicios &&
+        _notifier.tiposState == CatalogLoadState.success &&
+        _notifier.tipos.isNotEmpty) {
+      _requestedServicios = true;
+      _notifier.loadServiciosPorTipos(_notifier.tipos.map((t) => t.id).toList());
     }
     setState(() {});
   }
 
-  // Cambio de tipo on-demand (filtro de menú)
-  void _selectTipo(String nombre, int id) {
-    if (_selectedTipoId == id) return; // ya seleccionado, no recargar
-    setState(() {
-      _selectedTipoNombre = nombre;
-      _selectedTipoId = id;
-    });
-  }
-
   List<ServicioProveedor> get _filteredServices {
     var list = List<ServicioProveedor>.from(_notifier.servicios);
-
-    if (_selectedTipoId != null) {
-      list = list.where((s) => s.tipoServicioId == _selectedTipoId).toList();
-    }
 
     // Búsqueda por nombre del servicio
     if (_searchQuery.isNotEmpty) {
@@ -99,6 +83,12 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
     }
 
     return list;
+  }
+
+  void _retryServicios() {
+    if (_notifier.tipos.isNotEmpty) {
+      _notifier.loadServiciosPorTipos(_notifier.tipos.map((t) => t.id).toList());
+    }
   }
 
   void _showGuestLoginModal() {
@@ -225,7 +215,7 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // Menú de filtro y orden — solo visible cuando tipos ya cargaron
+          // Menú de orden — solo visible cuando tipos ya cargaron
           if (tiposState == CatalogLoadState.success && _notifier.tipos.isNotEmpty)
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded, color: darkGray),
@@ -234,48 +224,11 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                   setState(() => _selectedSort = 'price_desc');
                 } else if (value == 'sort_price_asc') {
                   setState(() => _selectedSort = 'price_asc');
-                } else if (value.startsWith('tipo_')) {
-                  final parts = value.substring(5).split('|');
-                  if (parts.length == 2) {
-                    final id = int.tryParse(parts[0]);
-                    final nombre = parts[1];
-                    if (id != null) _selectTipo(nombre, id);
-                  }
                 }
               },
               itemBuilder: (context) {
                 final items = <PopupMenuEntry<String>>[];
 
-                // Filtro por tipo
-                items.add(const PopupMenuItem(
-                  enabled: false,
-                  child: Text('Filtrar por Tipo:',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: textGray,
-                          fontSize: 12)),
-                ));
-                for (final tipo in _notifier.tipos) {
-                  final isSelected = _selectedTipoId == tipo.id;
-                  items.add(PopupMenuItem<String>(
-                    value: 'tipo_${tipo.id}|${tipo.nombre}',
-                    child: Row(
-                      children: [
-                        Icon(
-                          isSelected
-                              ? Icons.check_box_rounded
-                              : Icons.check_box_outline_blank_rounded,
-                          color: primaryBlue,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 12),
-                        Flexible(child: Text(tipo.nombre)),
-                      ],
-                    ),
-                  ));
-                }
-
-                items.add(const PopupMenuDivider());
                 items.add(const PopupMenuItem(
                   enabled: false,
                   child: Text('Ordenar por precio:',
@@ -333,10 +286,7 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
               ),
               child: TextField(
                 controller: _searchController,
-                onChanged: (v) async {
-                  setState(() => _searchQuery = v);
-                  await _notifier.buscarServicios(v.trim());
-                },
+                onChanged: (v) => setState(() => _searchQuery = v),
                 decoration: InputDecoration(
                   hintText: 'Buscar el servicio que necesitas',
                   hintStyle:
@@ -346,10 +296,9 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear_rounded, color: textGray),
-                          onPressed: () async {
+                          onPressed: () {
                             _searchController.clear();
                             setState(() => _searchQuery = '');
-                            await _notifier.buscarServicios('');
                           },
                         )
                       : null,
@@ -359,26 +308,6 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
               ),
             ),
           ),
-
-          // Chip del tipo seleccionado
-          if (_selectedTipoNombre != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
-                children: [
-                  const Icon(Icons.filter_list_rounded,
-                      size: 16, color: primaryBlue),
-                  const SizedBox(width: 6),
-                  Text(
-                    _selectedTipoNombre!,
-                    style: const TextStyle(
-                        fontSize: 13,
-                        color: primaryBlue,
-                        fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
-            ),
 
           // Lista de servicios
           Expanded(child: _buildBody(tiposState, serviciosState)),
@@ -477,7 +406,7 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
               ElevatedButton.icon(
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Reintentar'),
-                onPressed: () => _notifier.buscarServicios(_searchQuery.trim()),
+                onPressed: _retryServicios,
                 style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
                     foregroundColor: Colors.white),
@@ -568,6 +497,19 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
+                  if ((service.descripcion ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      service.descripcion!.trim(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Roboto',
+                        fontSize: 13,
+                        color: textGray,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
