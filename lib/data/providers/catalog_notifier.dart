@@ -22,6 +22,8 @@ class CatalogNotifier extends ChangeNotifier {
 
   CatalogNotifier(this._service);
 
+  static const Duration _cacheTtl = Duration(seconds: 15);
+
   // ── Estado CRUD compartido ───────────────────────────────────────────
   bool isSubmitting = false;
   String lastOperationError = '';
@@ -31,12 +33,14 @@ class CatalogNotifier extends ChangeNotifier {
   List<Categoria> categorias = const <Categoria>[];
   String categoriasError = '';
   bool _loadingCategorias = false;
+  DateTime? _categoriasFetchedAt;
 
   // ── Subcategorías (navegación cliente, caché por categoriaId) ─────────
   CatalogLoadState subcategoriasState = CatalogLoadState.idle;
   List<Subcategoria> subcategorias = const <Subcategoria>[];
   String subcategoriasError = '';
   int? _loadedCategoriaId;
+  DateTime? _subcategoriasFetchedAt;
   int _subcatGen = 0;
 
   // ── Todas las subcategorías (admin, sin filtro) ───────────────────────
@@ -49,6 +53,7 @@ class CatalogNotifier extends ChangeNotifier {
   List<TipoServicio> tipos = const <TipoServicio>[];
   String tiposError = '';
   int? _loadedSubcategoriaId;
+  DateTime? _tiposFetchedAt;
   int _tiposGen = 0;
 
   // ── Todos los tipos de servicio (admin, sin filtro) ──────────────────
@@ -82,9 +87,13 @@ class CatalogNotifier extends ChangeNotifier {
   // CATEGORÍAS — LECTURA
   // ════════════════════════════════════════════════════════════
 
-  Future<void> loadCategorias() async {
+  Future<void> loadCategorias({bool forceRefresh = false}) async {
     if (_loadingCategorias) return;
-    if (categoriasState == CatalogLoadState.success && categorias.isNotEmpty) {
+    if (!forceRefresh &&
+        categoriasState == CatalogLoadState.success &&
+        categorias.isNotEmpty &&
+        _categoriasFetchedAt != null &&
+        DateTime.now().difference(_categoriasFetchedAt!) < _cacheTtl) {
       return;
     }
     _loadingCategorias = true;
@@ -99,10 +108,12 @@ class CatalogNotifier extends ChangeNotifier {
       if (result.success && result.data != null) {
         categorias = result.data!;
         categoriasState = CatalogLoadState.success;
+        _categoriasFetchedAt = DateTime.now();
       } else {
         categorias = const [];
         categoriasError = result.message;
         categoriasState = CatalogLoadState.error;
+        _categoriasFetchedAt = null;
       }
       _safeNotify();
     }
@@ -121,15 +132,20 @@ class CatalogNotifier extends ChangeNotifier {
   // SUBCATEGORÍAS — LECTURA (navegación cliente)
   // ════════════════════════════════════════════════════════════
 
-  Future<void> loadSubcategorias(int categoriaId) async {
-    if (_loadedCategoriaId == categoriaId &&
-        subcategoriasState == CatalogLoadState.success) {
+  Future<void> loadSubcategorias(int categoriaId,
+      {bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _loadedCategoriaId == categoriaId &&
+        subcategoriasState == CatalogLoadState.success &&
+        _subcategoriasFetchedAt != null &&
+        DateTime.now().difference(_subcategoriasFetchedAt!) < _cacheTtl) {
       return;
     }
     if (_loadedCategoriaId != categoriaId) {
       subcategorias = const [];
       subcategoriasState = CatalogLoadState.idle;
       _loadedCategoriaId = categoriaId;
+      _subcategoriasFetchedAt = null;
     }
     final int thisGen = ++_subcatGen;
     subcategoriasState = CatalogLoadState.loading;
@@ -142,10 +158,12 @@ class CatalogNotifier extends ChangeNotifier {
     if (result.success && result.data != null) {
       subcategorias = result.data!;
       subcategoriasState = CatalogLoadState.success;
+      _subcategoriasFetchedAt = DateTime.now();
     } else {
       subcategorias = const [];
       subcategoriasError = result.message;
       subcategoriasState = CatalogLoadState.error;
+      _subcategoriasFetchedAt = null;
     }
     _safeNotify();
   }
@@ -195,15 +213,20 @@ class CatalogNotifier extends ChangeNotifier {
   // TIPOS DE SERVICIO — LECTURA (navegación cliente)
   // ════════════════════════════════════════════════════════════
 
-  Future<void> loadTiposServicio(int subcategoriaId) async {
-    if (_loadedSubcategoriaId == subcategoriaId &&
-        tiposState == CatalogLoadState.success) {
+  Future<void> loadTiposServicio(int subcategoriaId,
+      {bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _loadedSubcategoriaId == subcategoriaId &&
+        tiposState == CatalogLoadState.success &&
+        _tiposFetchedAt != null &&
+        DateTime.now().difference(_tiposFetchedAt!) < _cacheTtl) {
       return;
     }
     if (_loadedSubcategoriaId != subcategoriaId) {
       tipos = const [];
       tiposState = CatalogLoadState.idle;
       _loadedSubcategoriaId = subcategoriaId;
+      _tiposFetchedAt = null;
       servicios = const [];
       serviciosState = CatalogLoadState.idle;
       _loadedTipoId = null;
@@ -219,10 +242,12 @@ class CatalogNotifier extends ChangeNotifier {
     if (result.success && result.data != null) {
       tipos = result.data!;
       tiposState = CatalogLoadState.success;
+      _tiposFetchedAt = DateTime.now();
     } else {
       tipos = const [];
       tiposError = result.message;
       tiposState = CatalogLoadState.error;
+      _tiposFetchedAt = null;
     }
     _safeNotify();
   }
@@ -322,7 +347,48 @@ class CatalogNotifier extends ChangeNotifier {
     if (thisGen != _serviciosGen || _disposed) return;
     if (result.success && result.data != null) {
       // Solo servicios activos para el cliente
-      servicios = result.data!.where((s) => s.estado).toList();
+      servicios = result.data!
+          .where((s) => s.estado && s.tipoServicioId == tipoServicioId)
+          .toList();
+      serviciosState = CatalogLoadState.success;
+    } else {
+      servicios = const [];
+      serviciosError = result.message;
+      serviciosState = CatalogLoadState.error;
+    }
+    _safeNotify();
+  }
+
+  Future<void> loadServiciosPorTipos(List<int> tipoServicioIds) async {
+    final ids = tipoServicioIds
+        .where((id) => id > 0)
+        .toSet()
+        .toList()
+      ..sort();
+
+    if (ids.isEmpty) {
+      servicios = const [];
+      serviciosState = CatalogLoadState.success;
+      serviciosError = '';
+      _loadedTipoId = null;
+      _safeNotify();
+      return;
+    }
+
+    final int thisGen = ++_serviciosGen;
+    serviciosState = CatalogLoadState.loading;
+    serviciosError = '';
+    _loadedTipoId = null;
+    _safeNotify();
+
+    final result = await _service.getAllServiciosProveedor();
+
+    if (thisGen != _serviciosGen || _disposed) return;
+    if (result.success && result.data != null) {
+      final idSet = ids.toSet();
+      servicios = result.data!
+          .where((s) => s.estado && idSet.contains(s.tipoServicioId))
+          .toList();
       serviciosState = CatalogLoadState.success;
     } else {
       servicios = const [];
@@ -624,6 +690,7 @@ class CatalogNotifier extends ChangeNotifier {
     required int tipoServicioId,
     required double precioBase,
     bool estado = true,
+    String? descripcion,
   }) async {
     isSubmitting = true;
     lastOperationError = '';
@@ -633,6 +700,7 @@ class CatalogNotifier extends ChangeNotifier {
       tipoServicioId: tipoServicioId,
       precioBase: precioBase,
       estado: estado,
+      descripcion: descripcion,
     );
 
     isSubmitting = false;
@@ -652,6 +720,7 @@ class CatalogNotifier extends ChangeNotifier {
     required int tipoServicioId,
     required double precioBase,
     required bool estado,
+    String? descripcion,
   }) async {
     isSubmitting = true;
     lastOperationError = '';
@@ -662,6 +731,7 @@ class CatalogNotifier extends ChangeNotifier {
       tipoServicioId: tipoServicioId,
       precioBase: precioBase,
       estado: estado,
+      descripcion: descripcion,
     );
 
     isSubmitting = false;
@@ -791,6 +861,7 @@ class CatalogNotifier extends ChangeNotifier {
       tipoServicioId: serv.tipoServicioId,
       precioBase: serv.precioBase,
       estado: !serv.estado,
+      descripcion: serv.descripcion,
     );
 
     isSubmitting = false;
