@@ -72,12 +72,12 @@ class CatalogRepositoryImpl implements CatalogRepository {
   Future<ApiResult<List<ServicioProveedor>>> getMisServicios() => _service.getMisServicios();
 
   @override
-  Future<ApiResult<ServicioProveedor>> createMisServicioProveedor({required int tipoServicioId, required double precioBase, required bool estado}) =>
-      _service.createMisServicioProveedor(tipoServicioId: tipoServicioId, precioBase: precioBase, estado: estado);
+  Future<ApiResult<ServicioProveedor>> createMisServicioProveedor({required int tipoServicioId, required double precioBase, required bool estado, String? descripcion}) =>
+      _service.createMisServicioProveedor(tipoServicioId: tipoServicioId, precioBase: precioBase, estado: estado, descripcion: descripcion);
 
   @override
-  Future<ApiResult<ServicioProveedor>> updateMisServicioProveedor(int id, {required int tipoServicioId, required double precioBase, required bool estado}) =>
-      _service.updateMisServicioProveedor(id, tipoServicioId: tipoServicioId, precioBase: precioBase, estado: estado);
+  Future<ApiResult<ServicioProveedor>> updateMisServicioProveedor(int id, {required int tipoServicioId, required double precioBase, required bool estado, String? descripcion}) =>
+      _service.updateMisServicioProveedor(id, tipoServicioId: tipoServicioId, precioBase: precioBase, estado: estado, descripcion: descripcion);
 
   @override
   Future<ApiResult<void>> deleteMisServicioProveedor(int id) => _service.deleteMisServicioProveedor(id);
