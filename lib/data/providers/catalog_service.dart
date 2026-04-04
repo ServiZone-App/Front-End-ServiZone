@@ -54,7 +54,7 @@ class CatalogService {
   }) =>
       _safeCallSingle(
         label: 'updateCategoria($id)',
-        call: () => _client.putRequest('/categorias/$id', {
+        call: () => _client.patchRequest('/categorias/$id', {
           'Nombre': nombre,
           if (descripcion != null && descripcion.isNotEmpty)
             'Descripcion': descripcion,
@@ -118,7 +118,7 @@ class CatalogService {
   }) =>
       _safeCallSingle(
         label: 'updateSubcategoria($id)',
-        call: () => _client.putRequest('/subcategorias/$id', {
+        call: () => _client.patchRequest('/subcategorias/$id', {
           'Nombre': nombre,
           if (descripcion != null && descripcion.isNotEmpty)
             'Descripcion': descripcion,
@@ -183,7 +183,7 @@ class CatalogService {
   }) =>
       _safeCallSingle(
         label: 'updateTipoServicio($id)',
-        call: () => _client.putRequest('/tipos-servicio/$id', {
+        call: () => _client.patchRequest('/tipos-servicio/$id', {
           'Nombre': nombre,
           if (descripcion != null && descripcion.isNotEmpty)
             'Descripcion': descripcion,
@@ -215,18 +215,10 @@ class CatalogService {
           int tipoServicioId) =>
       _safeCallList(
         label: 'getServiciosPorTipoServicio($tipoServicioId)',
-        call: () => _client
-            .getRequest('/servicios-proveedor?${Uri(queryParameters: {'busqueda': ''}).query}'),
+        call: () =>
+            _client.getRequest('/servicios-proveedor?tipoServicioId=$tipoServicioId'),
         fromItem: (e) => ServicioProveedor.fromJson(e as Map<String, dynamic>),
-      ).then((res) {
-        if (!res.success || res.data == null) return res;
-        final filtered = res.data!.where((s) => s.tipoServicioId == tipoServicioId).toList();
-        return ApiResult.success(
-          data: filtered,
-          message: res.message,
-          statusCode: res.statusCode,
-        );
-      });
+      );
 
   /// Obtiene servicios del proveedor autenticado, filtrado por su proveedorId.
   Future<ApiResult<List<ServicioProveedor>>> getServiciosDelProveedor(
@@ -262,15 +254,21 @@ class CatalogService {
     required int proveedorId,
     required double precioBase,
     required bool estado,
+    String? descripcion,
   }) =>
       _safeCallSingle(
         label: 'createServicioProveedor',
-        call: () => _client.postRequest('/servicios-proveedor', {
-          'TipoServicioId': tipoServicioId,
-          'ProveedorId': proveedorId,
-          'PrecioBase': precioBase,
-          'Estado': estado,
-        }),
+        call: () {
+          final body = <String, dynamic>{
+            'TipoServicioId': tipoServicioId,
+            'ProveedorId': proveedorId,
+            'PrecioBase': precioBase,
+            'Estado': estado,
+          };
+          final d = descripcion?.trim();
+          if (d != null && d.isNotEmpty) body['Descripcion'] = d;
+          return _client.postRequest('/servicios-proveedor', body);
+        },
         fromItem: (e) =>
             ServicioProveedor.fromJson(e as Map<String, dynamic>),
       );
@@ -279,15 +277,21 @@ class CatalogService {
     required int tipoServicioId,
     required double precioBase,
     required bool estado,
+    String? descripcion,
   }) =>
       _safeCallSingle(
         label: 'createMisServicioProveedor',
-        call: () => _client.postRequest('/servicios-proveedor/mis-servicios', {
-          'TipoServicioId': tipoServicioId,
-          'PrecioBase': precioBase,
-          'Estado': estado,
-          'EstaActivo': estado,
-        }),
+        call: () {
+          final body = <String, dynamic>{
+            'TipoServicioId': tipoServicioId,
+            'PrecioBase': precioBase,
+            'Estado': estado,
+            'EstaActivo': estado,
+          };
+          final d = descripcion?.trim();
+          if (d != null && d.isNotEmpty) body['Descripcion'] = d;
+          return _client.postRequest('/servicios-proveedor/mis-servicios', body);
+        },
         fromItem: (e) => ServicioProveedor.fromJson(e as Map<String, dynamic>),
       );
 
@@ -297,15 +301,21 @@ class CatalogService {
     required int proveedorId,
     required double precioBase,
     required bool estado,
+    String? descripcion,
   }) =>
       _safeCallSingle(
         label: 'updateServicioProveedor($id)',
-        call: () => _client.putRequest('/servicios-proveedor/$id', {
-          'TipoServicioId': tipoServicioId,
-          'ProveedorId': proveedorId,
-          'PrecioBase': precioBase,
-          'Estado': estado,
-        }),
+        call: () {
+          final body = <String, dynamic>{
+            'TipoServicioId': tipoServicioId,
+            'ProveedorId': proveedorId,
+            'PrecioBase': precioBase,
+            'Estado': estado,
+          };
+          final d = descripcion?.trim();
+          if (d != null && d.isNotEmpty) body['Descripcion'] = d;
+          return _client.patchRequest('/servicios-proveedor/$id', body);
+        },
         fromItem: (e) =>
             ServicioProveedor.fromJson(e as Map<String, dynamic>),
       );
@@ -315,15 +325,22 @@ class CatalogService {
     required int tipoServicioId,
     required double precioBase,
     required bool estado,
+    String? descripcion,
   }) =>
       _safeCallSingle(
         label: 'updateMisServicioProveedor($id)',
-        call: () => _client.patchRequest('/servicios-proveedor/mis-servicios/$id', {
-          'TipoServicioId': tipoServicioId,
-          'PrecioBase': precioBase,
-          'Estado': estado,
-          'EstaActivo': estado,
-        }),
+        call: () {
+          final body = <String, dynamic>{
+            'TipoServicioId': tipoServicioId,
+            'PrecioBase': precioBase,
+            'Estado': estado,
+            'EstaActivo': estado,
+          };
+          final d = descripcion?.trim();
+          if (d != null && d.isNotEmpty) body['Descripcion'] = d;
+          return _client.patchRequest(
+              '/servicios-proveedor/mis-servicios/$id', body);
+        },
         fromItem: (e) => ServicioProveedor.fromJson(e as Map<String, dynamic>),
       );
 
