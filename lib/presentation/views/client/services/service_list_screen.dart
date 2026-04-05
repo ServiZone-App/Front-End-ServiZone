@@ -175,9 +175,10 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
     }
     // Convertir a Map para ServiceDetailScreen (sin modificar esa pantalla)
     final displayMap = <String, dynamic>{
+      'id': service.id,
       'name': service.nombreMostrado,
       'professional': service.proveedorNombre ?? 'Proveedor #${service.proveedorId}',
-      'description': service.descripcion,
+      'description': service.tipoServicioDescripcion ?? service.descripcion,
       'price': service.precioBase,
       'rating': service.ratingMedia,
       'reviewCount': 0,
