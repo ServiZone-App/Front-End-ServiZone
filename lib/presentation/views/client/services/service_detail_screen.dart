@@ -1,6 +1,12 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
+import 'package:servizone_app/core/locator.dart';
+import 'package:servizone_app/data/models/booking/resena_dto.dart';
+import 'package:servizone_app/data/providers/booking_api_service.dart';
+import 'package:servizone_app/presentation/viewmodels/solicitudes_reservas_view_model.dart';
 
 enum BookingState { idle, checkingAvailability, confirming, processing, success, error }
 
@@ -14,25 +20,74 @@ class ServiceDetailScreen extends StatefulWidget {
 }
 
 class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
+  static const _bannerColors = [
+    Color(0xFFFF7A1A), Color(0xFF1A73E8), Color(0xFF43A047),
+    Color(0xFF8E24AA), Color(0xFFE53935), Color(0xFF00897B),
+    Color(0xFFFFB300), Color(0xFF3949AB),
+  ];
+
   BookingState _bookingState = BookingState.idle;
+  List<ResenaDto> _resenas = [];
+  bool _resenasLoading = true;
+  late final Color _bannerColor;
+
+  @override
+  void initState() {
+    super.initState();
+    _bannerColor = _bannerColors[Random().nextInt(_bannerColors.length)];
+    _loadResenas();
+  }
+
+  Future<void> _loadResenas() async {
+    final serviceId = widget.service['id'];
+    if (serviceId == null) {
+      setState(() => _resenasLoading = false);
+      return;
+    }
+    final apiService = locator<BookingApiService>();
+    final res = await apiService.getResenasServicio(serviceId as int);
+    if (!mounted) return;
+    setState(() {
+      _resenas = res.success ? (res.data ?? []) : [];
+      _resenasLoading = false;
+    });
+  }
 
   Future<void> _solicitarReserva() async {
     if (_bookingState == BookingState.processing) return;
+    final serviceId = widget.service['id'];
+    if (serviceId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo identificar el servicio.'), backgroundColor: errorRed),
+      );
+      return;
+    }
     setState(() => _bookingState = BookingState.processing);
-    try {
-      await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return;
+    final vm = locator<SolicitudesReservasViewModel>();
+    final res = await vm.solicitarServicio(serviceId as int);
+    if (!mounted) return;
+    if (res.success) {
+      setState(() => _bookingState = BookingState.success);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('¡Solicitud enviada! El proveedor la revisará pronto.'),
+          backgroundColor: successGreen,
+        ),
+      );
+    } else {
       setState(() => _bookingState = BookingState.idle);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _bookingState = BookingState.idle);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res.message.isNotEmpty ? res.message : 'No se pudo enviar la solicitud.'),
+          backgroundColor: errorRed,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    const reviews = <Map<String, String>>[];
-    final int reviewCount = (widget.service['reviewCount'] as int?) ?? 0;
+    final int reviewCount = _resenas.length;
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -58,7 +113,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                   width: double.infinity,
                   height: 200,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF7A1A),
+                    color: _bannerColor,
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: const Center(
@@ -116,18 +171,20 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
               _buildCardSection(
                 title: 'Reseñas',
                 subtitle: '($reviewCount) Reseñas',
-                content: reviews.isEmpty
-                    ? const Text('Aún no hay reseñas para este servicio.',
-                        style: TextStyle(color: textGray))
-                    : ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: reviews.length,
-                        separatorBuilder: (context, index) =>
-                            const Divider(height: 32),
-                        itemBuilder: (context, index) =>
-                            _buildReviewItem(reviews[index]),
-                      ),
+                content: _resenasLoading
+                    ? const Center(child: CircularProgressIndicator(color: primaryBlue, strokeWidth: 2))
+                    : _resenas.isEmpty
+                        ? const Text('Aún no hay reseñas para este servicio.',
+                            style: TextStyle(color: textGray))
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _resenas.length,
+                            separatorBuilder: (context, index) =>
+                                const Divider(height: 24),
+                            itemBuilder: (context, index) =>
+                                _buildResenaItem(_resenas[index]),
+                          ),
               ),
               const SizedBox(height: 40),
             ],
@@ -154,8 +211,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                 ),
               ),
               TextSpan(
-                text:
-                    '(${(widget.service['reviewCount'] as int?) ?? 0}) Reseñas',
+                text: '(${_resenas.length}) Reseñas',
                 style: const TextStyle(color: textGray, fontSize: 14),
               ),
             ],
@@ -166,6 +222,27 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   }
 
   Widget _buildBookingComponent() {
+    if (_bookingState == BookingState.success) {
+      return Container(
+        width: double.infinity,
+        height: 56,
+        decoration: BoxDecoration(
+          color: successGreen,
+          borderRadius: BorderRadius.circular(100),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_rounded, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              '¡Solicitud enviada!',
+              style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ],
+        ),
+      );
+    }
     return SizedBox(
       width: double.infinity,
       height: 56,
@@ -181,15 +258,11 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
             ? const SizedBox(
                 height: 24,
                 width: 24,
-                child:
-                    CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
               )
             : const Text(
                 'Solicitar reserva',
-                style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold),
+                style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.bold),
               ),
       ),
     );
@@ -220,13 +293,35 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     );
   }
 
-  Widget _buildReviewItem(Map<String, String> review) {
+  Widget _buildResenaItem(ResenaDto resena) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(review['name']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        const SizedBox(height: 4),
-        Text(review['comment']!, style: const TextStyle(color: textGray, fontSize: 14)),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                resena.clienteNombre ?? 'Cliente',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: darkGray),
+              ),
+            ),
+            Row(
+              children: List.generate(5, (i) => Icon(
+                i < resena.calificacion ? Icons.star_rounded : Icons.star_outline_rounded,
+                color: const Color(0xFFFFA726),
+                size: 18,
+              )),
+            ),
+          ],
+        ),
+        if (resena.comentario != null && resena.comentario!.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            resena.comentario!,
+            style: const TextStyle(fontSize: 13, color: textGray, fontStyle: FontStyle.italic),
+          ),
+        ],
       ],
     );
   }
