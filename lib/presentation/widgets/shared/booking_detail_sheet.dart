@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
+import 'package:servizone_app/data/models/booking/resena_dto.dart';
 import 'package:servizone_app/data/models/booking_model.dart';
 import 'package:servizone_app/presentation/widgets/shared/status_badge.dart';
 
@@ -8,12 +9,14 @@ class BookingDetailSheet extends StatelessWidget {
   final BookingModel booking;
   final bool isProvider;
   final Widget? actionButtons;
+  final ResenaDto? resena;
 
   const BookingDetailSheet({
     super.key,
     required this.booking,
     this.isProvider = false,
     this.actionButtons,
+    this.resena,
   });
 
   @override
@@ -73,27 +76,21 @@ class BookingDetailSheet extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildDetailRow('Tipo de servicio', booking.serviceType),
+                _buildDetailRow('Categoría', booking.serviceType),
                 const SizedBox(height: 16),
                 _buildDetailRow('Nombre del servicio', booking.serviceName),
                 const SizedBox(height: 16),
                 _buildDetailRow(
-                  isProvider ? 'Cliente' : 'Proveedor', 
+                  isProvider ? 'Cliente' : 'Proveedor',
                   isProvider ? booking.clientName : (booking.providerName ?? 'No asignado')
                 ),
                 const SizedBox(height: 16),
                 _buildDetailRow(
-                  'Fecha y hora', 
+                  'Fecha y hora',
                   DateFormat('EEEE, dd MMMM yyyy - hh:mm a', 'es_ES').format(booking.date),
                 ),
                 const SizedBox(height: 16),
-                _buildDetailRow(
-                  'Estado de la reserva', 
-                  booking.status.name.replaceFirst(
-                    booking.status.name[0], 
-                    booking.status.name[0].toUpperCase()
-                  ),
-                ),
+                _buildDetailRow('Estado de la reserva', _statusDisplayName(booking.status)),
                 const SizedBox(height: 16),
                 _buildDetailRow(
                   'Precio', 
@@ -105,13 +102,85 @@ class BookingDetailSheet extends StatelessWidget {
             ),
           ),
           
+          // Reseña del cliente (solo visible para el proveedor cuando hay reseña)
+          if (isProvider && resena != null) ...[
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF8E1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFFFA726).withValues(alpha: 0.4)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.star_rounded, color: Color(0xFFFFA726), size: 18),
+                      SizedBox(width: 6),
+                      Text(
+                        'Reseña del cliente',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: darkGray,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        resena!.clienteNombre ?? 'Cliente',
+                        style: const TextStyle(
+                          fontFamily: 'Roboto',
+                          fontSize: 13,
+                          color: textGray,
+                        ),
+                      ),
+                      Row(
+                        children: List.generate(
+                          5,
+                          (i) => Icon(
+                            i < resena!.calificacion
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
+                            color: const Color(0xFFFFA726),
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (resena!.comentario != null && resena!.comentario!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      resena!.comentario!,
+                      style: const TextStyle(
+                        fontFamily: 'Roboto',
+                        fontSize: 13,
+                        color: textGray,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+
           if (actionButtons != null) ...[
             const SizedBox(height: 24),
             actionButtons!,
           ],
 
           const SizedBox(height: 16),
-          
+
           SizedBox(
             width: double.infinity,
             height: 50,
@@ -127,6 +196,18 @@ class BookingDetailSheet extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _statusDisplayName(BookingStatus status) {
+    switch (status) {
+      case BookingStatus.pendiente:  return 'Pendiente';
+      case BookingStatus.enRevision: return 'En revisión';
+      case BookingStatus.enProceso:  return 'En proceso';
+      case BookingStatus.confirmada: return 'Confirmada';
+      case BookingStatus.completada: return 'Completada';
+      case BookingStatus.cancelada:  return 'Cancelada';
+      case BookingStatus.rechazada:  return 'Rechazada';
+    }
   }
 
   Widget _buildDetailRow(String label, String value, {Color? textColor, bool isHighlight = false}) {
