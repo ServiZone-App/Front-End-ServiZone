@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
-import 'package:servizone_app/data/models/booking_model.dart';
-import 'package:servizone_app/presentation/widgets/shared/status_badge.dart';
-import 'package:servizone_app/presentation/widgets/shared/booking_detail_sheet.dart';
 import 'package:servizone_app/core/locator.dart';
-import 'package:servizone_app/domain/repositories/auth_repository.dart';
-import 'package:servizone_app/presentation/viewmodels/booking_view_model.dart';
+import 'package:servizone_app/data/models/booking/reserva_dto.dart';
+import 'package:servizone_app/data/models/booking_model.dart';
+import 'package:servizone_app/presentation/viewmodels/solicitudes_reservas_view_model.dart';
+import 'package:servizone_app/presentation/widgets/shared/booking_detail_sheet.dart';
+import 'package:servizone_app/presentation/widgets/shared/status_badge.dart';
 
 class BookingHistoryScreen extends StatefulWidget {
   final bool isProvider;
@@ -25,17 +25,74 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
   String _priceSort = 'none'; // 'asc', 'desc', 'none'
   String _dateSort = 'desc'; // 'asc', 'desc'
   final List<String> _selectedServiceTypes = [];
-  late final BookingViewModel _vm;
+
+  late final SolicitudesReservasViewModel _solicitudesVm;
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  BookingStatus _mapEstado(String estado) {
+    switch (estado.toLowerCase()) {
+      case 'pendiente':   return BookingStatus.pendiente;
+      case 'en_revision': return BookingStatus.enRevision;
+      case 'en_proceso':  return BookingStatus.enProceso;
+      case 'completado':  return BookingStatus.completada;
+      case 'cancelado':   return BookingStatus.cancelada;
+      case 'rechazada':   return BookingStatus.rechazada;
+      default:            return BookingStatus.pendiente;
+    }
+  }
+
+  BookingModel _toBookingModel(ReservaDto dto) {
+    return BookingModel(
+      id: dto.solicitudId.toString(),
+      clientId: dto.clienteId.toString(),
+      providerId: dto.proveedorId.toString(),
+      clientName: dto.clienteNombre,
+      providerName: dto.proveedorNombre,
+      serviceType: dto.categoria ?? dto.nombreServicio ?? 'Servicio',
+      serviceName: dto.nombreServicio ?? 'Servicio ${dto.servicioProveedorId}',
+      date: dto.fechaHoraReserva ?? dto.fechaCreacion,
+      address: dto.direccionCliente ?? '',
+      price: dto.precioAcordado ?? 0.0,
+      status: _mapEstado(dto.estado),
+    );
+  }
 
   List<String> get _availableServiceTypes {
-    return _vm.bookings.map((e) => e.serviceType).toSet().toList();
+    return _allBookings.map((e) => e.serviceType).toSet().toList();
   }
+
+  List<BookingModel> get _allBookings {
+    final raw = widget.isProvider
+        ? _solicitudesVm.reservasProveedor.map(_toBookingModel).toList()
+        : _solicitudesVm.misBookings.map(_toBookingModel).toList();
+    // Historial nunca muestra reservas activas (en_proceso)
+    return raw.where((b) => b.status != BookingStatus.enProceso).toList();
+  }
+
+  // Estados válidos para el filtro en la vista de proveedor (solo finales)
+  static const _providerFilterableStatuses = [
+    BookingStatus.completada,
+    BookingStatus.cancelada,
+    BookingStatus.rechazada,
+  ];
+
+  // Estados válidos para el filtro en la vista de cliente (solo finales)
+  static const _clientFilterableStatuses = [
+    BookingStatus.completada,
+    BookingStatus.cancelada,
+    BookingStatus.rechazada,
+  ];
+
+  bool get _isBusy => _solicitudesVm.isBusy;
+
+  String? get _error => _solicitudesVm.error;
 
   @override
   void initState() {
     super.initState();
-    _vm = locator<BookingViewModel>();
-    _vm.addListener(_onChanged);
+    _solicitudesVm = locator<SolicitudesReservasViewModel>();
+    _solicitudesVm.addListener(_onChanged);
     _load();
   }
 
@@ -44,33 +101,23 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
   }
 
   Future<void> _load() async {
-    final authRepo = locator<AuthRepository>();
-    final res = widget.isProvider ? await authRepo.getCurrentProveedorId() : await authRepo.getCurrentClienteId();
-    if (!mounted) return;
-    if (res.success && res.data != null) {
-      if (widget.isProvider) {
-        await _vm.loadProviderBookings(res.data!);
-      } else {
-        await _vm.loadClientBookings(res.data!);
-      }
+    if (widget.isProvider) {
+      await _solicitudesVm.cargarReservasProveedor();
     } else {
-      _vm.setError(res.message.isNotEmpty ? res.message : 'No se pudo cargar tu historial.');
+      await _solicitudesVm.cargarMisBookings();
     }
   }
 
   List<BookingModel> get _filteredBookings {
-    var filtered = _vm.bookings.where((booking) {
-      // Filtro de búsqueda (Nombre de servicio, cliente o proveedor)
+    var filtered = _allBookings.where((booking) {
       final searchLower = _searchQuery.toLowerCase();
       final matchesSearch = booking.serviceName.toLowerCase().contains(searchLower) ||
           booking.clientName.toLowerCase().contains(searchLower) ||
           (booking.providerName?.toLowerCase().contains(searchLower) ?? false);
 
-      // Filtro de estado
       final matchesStatus = _statusFilter == null || booking.status == _statusFilter;
 
-      // Filtro de tipo de servicio
-      final matchesService = _selectedServiceTypes.isEmpty || 
+      final matchesService = _selectedServiceTypes.isEmpty ||
                              _selectedServiceTypes.contains(booking.serviceType);
 
       return matchesSearch && matchesStatus && matchesService;
@@ -91,7 +138,7 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
 
   @override
   void dispose() {
-    _vm.removeListener(_onChanged);
+    _solicitudesVm.removeListener(_onChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -177,7 +224,10 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                   ],
                 ),
               ),
-              ...BookingStatus.values.map((status) => PopupMenuItem(
+              ...(widget.isProvider
+                  ? _providerFilterableStatuses
+                  : _clientFilterableStatuses
+              ).map((status) => PopupMenuItem(
                 value: 'status_${status.name}',
                 child: Row(
                   children: [
@@ -203,6 +253,16 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                     Icon(Icons.calendar_today_rounded, color: _dateSort == 'desc' ? primaryBlue : textGray, size: 20),
                     const SizedBox(width: 12),
                     const Text('Fecha: más reciente'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'date_asc',
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_today_rounded, color: _dateSort == 'asc' ? primaryBlue : textGray, size: 20),
+                    const SizedBox(width: 12),
+                    const Text('Fecha: más antigua'),
                   ],
                 ),
               ),
@@ -234,7 +294,7 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
         children: [
           _buildSearchBar(),
           Expanded(
-            child: _vm.isBusy
+            child: _isBusy
                 ? const Center(child: CircularProgressIndicator(color: primaryBlue))
                 : _filteredBookings.isEmpty
                     ? _buildEmptyState()
@@ -249,11 +309,11 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
     );
   }
 
-
-
   Widget _buildBookingCard(BookingModel booking) {
     Color statusColor = switch (booking.status) {
       BookingStatus.pendiente => warningOrange,
+      BookingStatus.enRevision => const Color(0xFF0288D1),
+      BookingStatus.enProceso => const Color(0xFF00796B),
       BookingStatus.confirmada => successGreen,
       BookingStatus.completada => successGreen,
       BookingStatus.cancelada => errorRed,
@@ -272,8 +332,8 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05), 
-              blurRadius: 10, 
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
               offset: const Offset(0, 4)
             )
           ],
@@ -306,7 +366,7 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                               child: Text(
                                 booking.serviceName,
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.bold, 
+                                  fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                   color: textGray,
                                 ),
@@ -318,14 +378,11 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                        widget.isProvider 
-                          ? 'Cliente: ${booking.clientName.isNotEmpty ? booking.clientName : 'Desconocido'}' 
-                          : 'Proveedor: ${booking.providerName != null && booking.providerName!.isNotEmpty ? booking.providerName : 'No asignado'}',
-                        style: const TextStyle(
-                          color: textGray, 
-                          fontSize: 13
+                          widget.isProvider
+                            ? 'Cliente: ${booking.clientName.isNotEmpty ? booking.clientName : 'Desconocido'}'
+                            : 'Proveedor: ${booking.providerName != null && booking.providerName!.isNotEmpty ? booking.providerName : 'No asignado'}',
+                          style: const TextStyle(color: textGray, fontSize: 13),
                         ),
-                      ),
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -349,10 +406,6 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
     );
   }
 
-
-
-
-
   void _showBookingDetails(BookingModel booking) {
     showModalBottomSheet(
       context: context,
@@ -361,8 +414,6 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
       builder: (context) => BookingDetailSheet(booking: booking, isProvider: widget.isProvider),
     );
   }
-
-
 
   Widget _buildSearchBar() {
     return Container(
@@ -389,7 +440,7 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
   }
 
   Widget _buildEmptyState() {
-    final err = _vm.error;
+    final err = _error;
     if (err != null && err.isNotEmpty) {
       return Center(
         child: Padding(
