@@ -5,7 +5,6 @@ import 'package:servizone_app/data/providers/auth_service.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
 import 'package:servizone_app/core/routes/app_routes.dart';
 import 'package:servizone_app/presentation/views/client/profile/edit_profile_screen.dart';
-import 'package:servizone_app/presentation/views/client/profile/change_password_screen.dart';
 import 'package:servizone_app/presentation/views/common/booking_history_screen.dart';
 
 class ClientProfileScreen extends StatefulWidget {
@@ -133,20 +132,6 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => const EditProfileScreen(),
-                  ),
-                );
-              },
-            ),
-            _buildOptionTile(
-              icon: Icons.lock_reset_rounded,
-              title: 'Cambiar contraseña',
-              color: primaryBlue,
-              onTap: () {
-                HapticFeedback.lightImpact();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ChangePasswordScreen(),
                   ),
                 );
               },
