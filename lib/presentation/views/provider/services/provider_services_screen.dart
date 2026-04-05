@@ -129,6 +129,158 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
     );
   }
 
+  // ── Modal de actualización ────────────────────────────────────────────
+
+  static const double _precioMin = 10000;
+  static const double _precioMax = 20000000;
+
+  String? _validatePrecio(String raw) {
+    final text = raw.trim().replaceAll(',', '.');
+    if (text.isEmpty) return 'Ingresa un precio';
+    final value = double.tryParse(text);
+    if (value == null) return 'Ingresa un número válido';
+    if (value < _precioMin) return 'El precio mínimo es \$${_precioMin.toStringAsFixed(0)}';
+    if (value > _precioMax) return 'El precio máximo es \$${_precioMax.toStringAsFixed(0)}';
+    return null;
+  }
+
+  void _showUpdateModal(ServicioProveedor s) {
+    final priceCtrl = TextEditingController(text: s.precioBase.toStringAsFixed(0));
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        bool isLoading = false;
+        String? errorMsg = _validatePrecio(priceCtrl.text);
+
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final bool canConfirm = !isLoading && errorMsg == null;
+
+            Future<void> confirm() async {
+              final validationError = _validatePrecio(priceCtrl.text);
+              if (validationError != null) {
+                setDialogState(() => errorMsg = validationError);
+                return;
+              }
+              final newPrice = double.parse(
+                priceCtrl.text.trim().replaceAll(',', '.'),
+              );
+              setDialogState(() { isLoading = true; errorMsg = null; });
+              final result = await _notifier.updateMisServicioProveedor(
+                s.id,
+                tipoServicioId: s.tipoServicioId,
+                precioBase: newPrice,
+                estado: s.estado,
+                descripcion: s.descripcion,
+              );
+              if (!ctx.mounted) return;
+              if (result.success) {
+                Navigator.pop(ctx);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Precio actualizado correctamente'),
+                    backgroundColor: successGreen,
+                    behavior: SnackBarBehavior.floating,
+                  ));
+                }
+              } else {
+                setDialogState(() { isLoading = false; errorMsg = result.message; });
+              }
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Text(
+                'Actualizar servicio',
+                style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Poppins', fontSize: 18),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildInfoItem('Nombre', s.nombreMostrado),
+                    if (s.descripcion != null && s.descripcion!.isNotEmpty)
+                      _buildInfoItem('Descripción', s.descripcion!),
+                    _buildInfoItem('Estado', s.estado ? 'Activo' : 'Inactivo'),
+                    _buildInfoItem('Duración estimada', '${s.duracionEstimadaMin} min'),
+                    if (s.ratingMedia > 0)
+                      _buildInfoItem('Rating', '${s.ratingMedia.toStringAsFixed(1)} / 5'),
+                    const Divider(height: 28),
+                    const Text(
+                      'Precio base',
+                      style: TextStyle(fontWeight: FontWeight.w600, color: textGray, fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: priceCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      style: const TextStyle(fontSize: 16),
+                      onChanged: (v) => setDialogState(() => errorMsg = _validatePrecio(v)),
+                      decoration: InputDecoration(
+                        prefixText: '\$ ',
+                        hintText: '0',
+                        filled: true,
+                        fillColor: backgroundGray,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                        errorText: errorMsg,
+                      ),
+                    ),
+                    if (isLoading) ...[
+                      const SizedBox(height: 16),
+                      const Center(child: CircularProgressIndicator(color: primaryBlue)),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading ? null : () => Navigator.pop(ctx),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: canConfirm ? confirm : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryBlue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Confirmar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((_) => priceCtrl.dispose());
+  }
+
+  Widget _buildInfoItem(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(label, style: const TextStyle(color: textGray, fontSize: 13)),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: textGray),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Acciones ──────────────────────────────────────────────────────────
 
   Future<void> _toggleEstado(ServicioProveedor s) async {
@@ -349,7 +501,12 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
   }
 
   Widget _buildServiceCard(ServicioProveedor s) {
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        _showUpdateModal(s);
+      },
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -419,6 +576,7 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }
