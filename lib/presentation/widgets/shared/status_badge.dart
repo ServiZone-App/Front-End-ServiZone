@@ -36,6 +36,10 @@ class StatusBadge extends StatelessWidget {
     switch (status) {
       case BookingStatus.pendiente:
         return const Color(0xFFFE9F2A); // Pendiente: Naranja
+      case BookingStatus.enRevision:
+        return const Color(0xFF0288D1); // En revisión: Azul informativo
+      case BookingStatus.enProceso:
+        return const Color(0xFF00796B); // En proceso: Verde teal
       case BookingStatus.confirmada:
         return const Color(0xFF4A9F4E); // Confirmada: Verde
       case BookingStatus.cancelada:
@@ -45,6 +49,5 @@ class StatusBadge extends StatelessWidget {
       case BookingStatus.completada:
         return const Color(0xFF00569D); // Completada: Azul Oscuro
     }
-    // En procreso se agregará pronto si es necesario al enum, si no, fallaría el switch
   }
 }
