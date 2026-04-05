@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
-import 'package:servizone_app/data/models/booking_model.dart';
-import 'package:servizone_app/presentation/widgets/shared/status_badge.dart';
-import 'package:servizone_app/presentation/widgets/shared/booking_detail_sheet.dart';
 import 'package:servizone_app/core/locator.dart';
-import 'package:servizone_app/domain/repositories/auth_repository.dart';
-import 'package:servizone_app/presentation/viewmodels/booking_view_model.dart';
+import 'package:servizone_app/data/models/booking/reserva_dto.dart';
+import 'package:servizone_app/data/models/booking_model.dart';
+import 'package:servizone_app/presentation/viewmodels/solicitudes_reservas_view_model.dart';
+import 'package:servizone_app/presentation/widgets/shared/booking_detail_sheet.dart';
+import 'package:servizone_app/presentation/widgets/shared/status_badge.dart';
 
 class ClientBookingsScreen extends StatefulWidget {
   const ClientBookingsScreen({super.key});
@@ -17,20 +17,49 @@ class ClientBookingsScreen extends StatefulWidget {
 }
 
 class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
-  String _priceSort = 'none'; // 'asc', 'desc', 'none'
-  String _dateSort = 'desc'; // 'asc', 'desc'
+  String _priceSort = 'none';
+  String _dateSort = 'desc';
   final List<String> _selectedServiceTypes = [];
-  late final BookingViewModel _vm;
-  int? _clienteId;
+  final Set<String> _ratedIds = {};
+  late final SolicitudesReservasViewModel _vm;
 
-  List<String> get _availableServiceTypes {
-    return _bookingsNoPendientes.map((e) => e.serviceType).toSet().toList();
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  BookingStatus _mapEstado(String estado) {
+    switch (estado.toLowerCase()) {
+      case 'pendiente':   return BookingStatus.pendiente;
+      case 'en_revision': return BookingStatus.enRevision;
+      case 'en_proceso':  return BookingStatus.enProceso;
+      case 'completado':  return BookingStatus.completada;
+      case 'cancelado':   return BookingStatus.cancelada;
+      case 'rechazada':   return BookingStatus.rechazada;
+      default:            return BookingStatus.pendiente;
+    }
   }
-  
+
+  BookingModel _toBookingModel(ReservaDto dto) {
+    return BookingModel(
+      id: dto.solicitudId.toString(),
+      clientId: dto.clienteId.toString(),
+      providerId: dto.proveedorId.toString(),
+      clientName: dto.clienteNombre,
+      providerName: dto.proveedorNombre,
+      serviceType: dto.nombreServicio ?? 'Servicio',
+      serviceName: dto.nombreServicio ?? 'Servicio ${dto.servicioProveedorId}',
+      date: dto.fechaHoraReserva ?? dto.fechaCreacion,
+      address: dto.direccionCliente ?? '',
+      price: dto.precioAcordado ?? 0.0,
+      status: _mapEstado(dto.estado),
+    );
+  }
+
+  List<String> get _availableServiceTypes =>
+      _vm.misBookings.map((dto) => dto.nombreServicio ?? 'Servicio').toSet().toList();
+
   @override
   void initState() {
     super.initState();
-    _vm = locator<BookingViewModel>();
+    _vm = locator<SolicitudesReservasViewModel>();
     _vm.addListener(_onChanged);
     _load();
   }
@@ -46,26 +75,19 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
   }
 
   Future<void> _load() async {
-    final authRepo = locator<AuthRepository>();
-    final res = await authRepo.getCurrentClienteId();
-    if (!mounted) return;
-    if (res.success && res.data != null) {
-      setState(() => _clienteId = res.data);
-      await _vm.loadClientBookings(res.data!);
-    } else {
-      setState(() => _clienteId = null);
-      _vm.setError(res.message.isNotEmpty ? res.message : 'No se pudo verificar tu ID de cliente. Contacta a soporte.');
-    }
+    await _vm.cargarMisBookings();
   }
 
   List<BookingModel> get _bookingsNoPendientes =>
-      _vm.bookings.where((b) => b.status != BookingStatus.pendiente).toList();
+      _vm.misBookings
+          .map(_toBookingModel)
+          .where((b) => b.status == BookingStatus.enProceso)
+          .toList();
 
   List<BookingModel> get _filteredBookings {
     var list = _bookingsNoPendientes.where((booking) {
-      bool typeMatch = _selectedServiceTypes.isEmpty || _selectedServiceTypes.contains(booking.serviceType);
-      
-      return typeMatch;
+      return _selectedServiceTypes.isEmpty ||
+          _selectedServiceTypes.contains(booking.serviceType);
     }).toList();
 
     if (_priceSort == 'asc') {
@@ -77,7 +99,6 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
     } else {
       list.sort((a, b) => b.date.compareTo(a.date));
     }
-    
     return list;
   }
 
@@ -87,7 +108,6 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
     } else {
       HapticFeedback.lightImpact();
     }
-
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -119,101 +139,36 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
     );
   }
 
-  void _showCancelDialog(BookingModel booking) {
-    final reasonController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Cancelar Reserva', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('¿Estás seguro de que deseas cancelar esta reserva?', style: TextStyle(color: darkGray)),
-            const SizedBox(height: 16),
-            const Text('Motivo de cancelación', style: TextStyle(fontSize: 12, color: textGray)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: reasonController,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Explica brevemente el motivo...',
-                hintStyle: const TextStyle(fontSize: 14),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: lightGray,
-              ),
-            ),
-          ],
-        ),
-        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        actions: [
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    side: const BorderSide(color: primaryBlue),
-                  ),
-                  child: const Text('Volver', style: TextStyle(color: primaryBlue)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    if (reasonController.text.trim().isEmpty) {
-                      _showNotification('El motivo es obligatorio', isError: true);
-                      return;
-                    }
-                    final clienteId = _clienteId;
-                    if (clienteId == null) return;
-                    final res = await _vm.cancel(booking.id, clienteId, reasonController.text.trim());
-                    if (!mounted) return;
-                    Navigator.of(context).pop();
-                    _showNotification(res.success ? 'Reserva cancelada correctamente' : res.message, isError: !res.success);
-                    if (res.success) await _load();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: errorRed,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('Confirmar', style: TextStyle(color: Colors.white)),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showRatingDialog(BookingModel booking) {
     double selectedRating = 5;
     final reviewController = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Calificar Servicio', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold)),
+          title: const Text('Calificar Servicio',
+              style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (index) => IconButton(
-                  icon: Icon(
-                    index < selectedRating ? Icons.star_rounded : Icons.star_outline_rounded,
-                    color: Colors.amber,
-                    size: 36,
+                children: List.generate(
+                  5,
+                  (index) => IconButton(
+                    icon: Icon(
+                      index < selectedRating
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
+                      color: Colors.amber,
+                      size: 36,
+                    ),
+                    onPressed: () =>
+                        setDialogState(() => selectedRating = index + 1.0),
                   ),
-                  onPressed: () => setDialogState(() => selectedRating = index + 1.0),
-                )),
+                ),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -222,7 +177,8 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
                 decoration: InputDecoration(
                   hintText: 'Comparte tu experiencia...',
                   hintStyle: const TextStyle(fontSize: 14),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: lightGray,
                 ),
@@ -237,7 +193,8 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(ctx),
                     style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     child: const Text('Cerrar'),
                   ),
@@ -246,24 +203,31 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () async {
-                      final clienteId = _clienteId;
-                      if (clienteId == null) return;
-                      final res = await _vm.rate(
-                        booking.id,
-                        clienteId,
-                        selectedRating,
-                        reviewController.text.trim(),
+                      final solicitudId = int.tryParse(booking.id) ?? 0;
+                      final comentario = reviewController.text.trim();
+                      final res = await _vm.dejarResena(
+                        solicitudId: solicitudId,
+                        calificacion: selectedRating.toInt(),
+                        comentario: comentario.isEmpty ? null : comentario,
                       );
                       if (!mounted) return;
                       Navigator.of(context).pop();
-                      _showNotification(res.success ? '¡Gracias por tu calificación!' : res.message, isError: !res.success);
-                      if (res.success) await _load();
+                      _showNotification(
+                        res.success ? '¡Gracias por tu calificación!' : res.message,
+                        isError: !res.success,
+                      );
+                      if (res.success) {
+                        setState(() => _ratedIds.add(booking.id));
+                        await _load();
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: successGreen,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Enviar', style: TextStyle(color: Colors.white)),
+                    child: const Text('Enviar',
+                        style: TextStyle(color: Colors.white)),
                   ),
                 ),
               ],
@@ -279,7 +243,8 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
     return Scaffold(
       backgroundColor: backgroundGray,
       appBar: AppBar(
-        title: const Text('Mis Reservas', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+        title: const Text('Mis Reservas',
+            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: textGray,
@@ -314,34 +279,52 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
             itemBuilder: (context) => [
               const PopupMenuItem(
                 enabled: false,
-                child: Text('Filtrar por tipo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                child: Text('Filtrar por tipo',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
               ),
               ..._availableServiceTypes.map((type) => PopupMenuItem(
-                value: 'type_$type',
-                child: Row(
-                  children: [
-                    Icon(
-                      _selectedServiceTypes.contains(type) ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                      color: primaryBlue,
-                      size: 20,
+                    value: 'type_$type',
+                    child: Row(
+                      children: [
+                        Icon(
+                          _selectedServiceTypes.contains(type)
+                              ? Icons.check_box_rounded
+                              : Icons.check_box_outline_blank_rounded,
+                          color: primaryBlue,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(type),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Text(type),
-                  ],
-                ),
-              )),
+                  )),
               const PopupMenuDivider(),
               const PopupMenuItem(
                 enabled: false,
-                child: Text('Ordenar por', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                child: Text('Ordenar por',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
               ),
               PopupMenuItem(
                 value: 'date_desc',
                 child: Row(
                   children: [
-                    Icon(Icons.calendar_today_rounded, color: _dateSort == 'desc' ? primaryBlue : textGray, size: 20),
+                    Icon(Icons.calendar_today_rounded,
+                        color: _dateSort == 'desc' ? primaryBlue : textGray,
+                        size: 20),
                     const SizedBox(width: 12),
                     const Text('Fecha: más reciente'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'date_asc',
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_today_rounded,
+                        color: _dateSort == 'asc' ? primaryBlue : textGray,
+                        size: 20),
+                    const SizedBox(width: 12),
+                    const Text('Fecha: más antigua'),
                   ],
                 ),
               ),
@@ -349,7 +332,9 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
                 value: 'price_asc',
                 child: Row(
                   children: [
-                    Icon(Icons.arrow_upward_rounded, color: _priceSort == 'asc' ? primaryBlue : textGray, size: 20),
+                    Icon(Icons.arrow_upward_rounded,
+                        color: _priceSort == 'asc' ? primaryBlue : textGray,
+                        size: 20),
                     const SizedBox(width: 12),
                     const Text('Precio: menor a mayor'),
                   ],
@@ -359,7 +344,9 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
                 value: 'price_desc',
                 child: Row(
                   children: [
-                    Icon(Icons.arrow_downward_rounded, color: _priceSort == 'desc' ? primaryBlue : textGray, size: 20),
+                    Icon(Icons.arrow_downward_rounded,
+                        color: _priceSort == 'desc' ? primaryBlue : textGray,
+                        size: 20),
                     const SizedBox(width: 12),
                     const Text('Precio: mayor a menor'),
                   ],
@@ -374,7 +361,8 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
           : ListView.builder(
               padding: const EdgeInsets.all(20),
               itemCount: _filteredBookings.length,
-              itemBuilder: (context, index) => _buildBookingCard(_filteredBookings[index]),
+              itemBuilder: (context, index) =>
+                  _buildBookingCard(_filteredBookings[index]),
             ),
     );
   }
@@ -389,12 +377,14 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
   }
 
   Widget _buildBookingCard(BookingModel booking) {
-    Color statusColor = switch (booking.status) {
-      BookingStatus.pendiente => warningOrange,
-      BookingStatus.confirmada => successGreen,
-      BookingStatus.completada => successGreen,
-      BookingStatus.cancelada => errorRed,
-      BookingStatus.rechazada => errorRed,
+    final Color statusColor = switch (booking.status) {
+      BookingStatus.pendiente   => warningOrange,
+      BookingStatus.enRevision  => const Color(0xFF0288D1),
+      BookingStatus.enProceso   => const Color(0xFF00796B),
+      BookingStatus.confirmada  => successGreen,
+      BookingStatus.completada  => successGreen,
+      BookingStatus.cancelada   => errorRed,
+      BookingStatus.rechazada   => errorRed,
     };
 
     return GestureDetector(
@@ -407,7 +397,9 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: const [BoxShadow(color: cardShadow, blurRadius: 10, offset: Offset(0, 4))],
+          boxShadow: const [
+            BoxShadow(color: cardShadow, blurRadius: 10, offset: Offset(0, 4))
+          ],
         ),
         child: Column(
           children: [
@@ -426,8 +418,9 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
                     child: Icon(
                       switch (booking.status) {
                         BookingStatus.completada => Icons.check_circle_rounded,
-                        BookingStatus.cancelada => Icons.cancel_rounded,
-                        _ => Icons.calendar_today_rounded,
+                        BookingStatus.cancelada  => Icons.cancel_rounded,
+                        BookingStatus.rechazada  => Icons.cancel_rounded,
+                        _                        => Icons.calendar_today_rounded,
                       },
                       color: statusColor,
                     ),
@@ -443,7 +436,10 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
                             Expanded(
                               child: Text(
                                 booking.serviceName,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: darkGray),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: darkGray),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -458,11 +454,14 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            const Icon(Icons.calendar_today_rounded, size: 14, color: textGray),
+                            const Icon(Icons.calendar_today_rounded,
+                                size: 14, color: textGray),
                             const SizedBox(width: 4),
                             Text(
-                              DateFormat('dd MMM yyyy - hh:mm a').format(booking.date),
-                              style: const TextStyle(color: textGray, fontSize: 12),
+                              DateFormat('dd MMM yyyy - hh:mm a')
+                                  .format(booking.date),
+                              style: const TextStyle(
+                                  color: textGray, fontSize: 12),
                             ),
                           ],
                         ),
@@ -479,35 +478,43 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Total: \$${NumberFormat('#,###').format(booking.price)}',
-                    style: const TextStyle(
+                    booking.price > 0
+                        ? 'Total: \$${NumberFormat('#,###').format(booking.price)}'
+                        : 'Precio a confirmar',
+                    style: TextStyle(
                       fontFamily: 'Poppins',
                       fontWeight: FontWeight.bold,
-                      color: primaryBlue,
-                      fontSize: 16,
+                      color: booking.price > 0 ? primaryBlue : textGray,
+                      fontSize: booking.price > 0 ? 16 : 13,
                     ),
                   ),
                   Row(
                     children: [
-                      if (booking.status == BookingStatus.confirmada)
-                        TextButton(
-                          onPressed: () => _showCancelDialog(booking),
-                          child: const Text('Cancelar', style: TextStyle(color: errorRed, fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
-                        ),
-                      if (booking.status == BookingStatus.completada && booking.rating == null)
+                      if (booking.status == BookingStatus.completada &&
+                          !_ratedIds.contains(booking.id))
                         ElevatedButton(
                           onPressed: () => _showRatingDialog(booking),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryBlue,
                             minimumSize: const Size(80, 32),
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
-                          child: const Text('Calificar', style: TextStyle(fontSize: 12, color: Colors.white, fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                          child: const Text('Calificar',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                  fontFamily: 'Poppins',
+                                  fontWeight: FontWeight.w600)),
                         ),
                       TextButton(
                         onPressed: () => _showBookingDetails(booking),
-                        child: const Text('Detalles', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                        child: const Text('Detalles',
+                            style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),
@@ -522,7 +529,8 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
 
   Widget _buildEmptyState() {
     if (_vm.isBusy) {
-      return const Center(child: CircularProgressIndicator(color: primaryBlue));
+      return const Center(
+          child: CircularProgressIndicator(color: primaryBlue));
     }
     final err = _vm.error;
     if (err != null && err.isNotEmpty) {
@@ -532,16 +540,21 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline_rounded, size: 80, color: errorRed),
+              const Icon(Icons.error_outline_rounded,
+                  size: 80, color: errorRed),
               const SizedBox(height: 16),
-              Text(err, textAlign: TextAlign.center, style: const TextStyle(color: textGray)),
+              Text(err,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: textGray)),
               const SizedBox(height: 16),
               SizedBox(
                 width: 200,
                 child: ElevatedButton(
                   onPressed: _load,
-                  style: ElevatedButton.styleFrom(backgroundColor: primaryBlue),
-                  child: const Text('Reintentar', style: TextStyle(color: Colors.white)),
+                  style:
+                      ElevatedButton.styleFrom(backgroundColor: primaryBlue),
+                  child: const Text('Reintentar',
+                      style: TextStyle(color: Colors.white)),
                 ),
               ),
             ],
@@ -553,10 +566,16 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.calendar_month_rounded, size: 80, color: primaryBlue.withValues(alpha: 0.1)),
+          Icon(Icons.calendar_month_rounded,
+              size: 80, color: primaryBlue.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
-          const Text('No hay reservas registradas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkGray)),
-          const Text('Tus próximas reservas aparecerán aquí', style: TextStyle(color: textGray)),
+          const Text('No hay reservas registradas',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: darkGray)),
+          const Text('Tus próximas reservas aparecerán aquí',
+              style: TextStyle(color: textGray)),
         ],
       ),
     );
