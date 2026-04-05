@@ -5,7 +5,6 @@ import 'package:servizone_app/core/routes/app_routes.dart';
 import 'package:servizone_app/data/providers/auth_service.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
 import 'package:servizone_app/presentation/views/provider/profile/provider_edit_profile_screen.dart';
-import 'package:servizone_app/presentation/views/provider/profile/provider_change_password_screen.dart';
 
 import 'package:servizone_app/presentation/views/common/booking_history_screen.dart';
 import 'package:servizone_app/presentation/widgets/shared/provider_bottom_nav.dart';
@@ -219,20 +218,6 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => const ProviderEditProfileScreen(),
-                  ),
-                );
-              },
-            ),
-            _buildOptionTile(
-              icon: Icons.lock_rounded,
-              title: 'Cambiar contraseña',
-              color: primaryBlue,
-              onTap: () {
-                HapticFeedback.lightImpact();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ProviderChangePasswordScreen(),
                   ),
                 );
               },
