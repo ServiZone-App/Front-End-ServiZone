@@ -3,6 +3,7 @@ class ServicioProveedor {
   final int id;
   final int tipoServicioId;
   final String? tipoServicioNombre;
+  final String? tipoServicioDescripcion;
   final int proveedorId;
   final String? proveedorNombre;
   final double precioBase;
@@ -10,6 +11,7 @@ class ServicioProveedor {
   final String? descripcion;
   final int duracionEstimadaMin;
   final double ratingMedia;
+  final double? ratingPromedio;
   final bool estaActivo;
   final DateTime? fechaCreacion;
 
@@ -17,6 +19,7 @@ class ServicioProveedor {
     required this.id,
     required this.tipoServicioId,
     this.tipoServicioNombre,
+    this.tipoServicioDescripcion,
     required this.proveedorId,
     this.proveedorNombre,
     required this.precioBase,
@@ -24,6 +27,7 @@ class ServicioProveedor {
     this.descripcion,
     this.duracionEstimadaMin = 60,
     this.ratingMedia = 0.0,
+    this.ratingPromedio,
     this.estaActivo = true,
     this.fechaCreacion,
   });
@@ -34,6 +38,7 @@ class ServicioProveedor {
       id: ((json['Id'] ?? json['id']) as num).toInt(),
       tipoServicioId: ((json['TipoServicioId'] ?? json['tipoServicioId']) as num).toInt(),
       tipoServicioNombre: (json['TipoServicioNombre'] ?? json['tipoServicioNombre']) as String?,
+      tipoServicioDescripcion: (json['TipoServicioDescripcion'] ?? json['tipoServicioDescripcion']) as String?,
       proveedorId: ((json['ProveedorId'] ?? json['proveedorId']) as num).toInt(),
       proveedorNombre: (json['ProveedorNombre'] ?? json['proveedorNombre']) as String?,
       precioBase: ((json['PrecioBase'] ?? json['precioBase']) as num).toDouble(),
@@ -41,6 +46,9 @@ class ServicioProveedor {
       descripcion: (json['Descripcion'] ?? json['descripcion']) as String?,
       duracionEstimadaMin: ((json['DuracionEstimadaMin'] ?? json['duracionEstimadaMin'] ?? 60) as num).toInt(),
       ratingMedia: ((json['RatingMedia'] ?? json['ratingMedia'] ?? 0.0) as num).toDouble(),
+      ratingPromedio: (json['RatingPromedio'] ?? json['ratingPromedio']) != null
+          ? ((json['RatingPromedio'] ?? json['ratingPromedio']) as num).toDouble()
+          : null,
       estaActivo: (json['EstaActivo'] ?? json['estaActivo'] ?? true) as bool,
       fechaCreacion: rawFecha != null ? DateTime.tryParse(rawFecha.toString()) : null,
     );
@@ -68,6 +76,7 @@ class ServicioProveedor {
     int? id,
     int? tipoServicioId,
     String? tipoServicioNombre,
+    String? tipoServicioDescripcion,
     int? proveedorId,
     String? proveedorNombre,
     double? precioBase,
@@ -75,6 +84,7 @@ class ServicioProveedor {
     String? descripcion,
     int? duracionEstimadaMin,
     double? ratingMedia,
+    double? ratingPromedio,
     bool? estaActivo,
     DateTime? fechaCreacion,
   }) =>
@@ -82,6 +92,7 @@ class ServicioProveedor {
         id: id ?? this.id,
         tipoServicioId: tipoServicioId ?? this.tipoServicioId,
         tipoServicioNombre: tipoServicioNombre ?? this.tipoServicioNombre,
+        tipoServicioDescripcion: tipoServicioDescripcion ?? this.tipoServicioDescripcion,
         proveedorId: proveedorId ?? this.proveedorId,
         proveedorNombre: proveedorNombre ?? this.proveedorNombre,
         precioBase: precioBase ?? this.precioBase,
@@ -89,6 +100,7 @@ class ServicioProveedor {
         descripcion: descripcion ?? this.descripcion,
         duracionEstimadaMin: duracionEstimadaMin ?? this.duracionEstimadaMin,
         ratingMedia: ratingMedia ?? this.ratingMedia,
+        ratingPromedio: ratingPromedio ?? this.ratingPromedio,
         estaActivo: estaActivo ?? this.estaActivo,
         fechaCreacion: fechaCreacion ?? this.fechaCreacion,
       );
