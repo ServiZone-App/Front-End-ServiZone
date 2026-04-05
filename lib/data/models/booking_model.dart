@@ -1,6 +1,8 @@
 
 enum BookingStatus {
   pendiente,
+  enRevision,
+  enProceso,
   confirmada,
   completada,
   cancelada,
