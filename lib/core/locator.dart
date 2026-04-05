@@ -5,6 +5,7 @@ import 'package:servizone_app/data/providers/auth_service.dart';
 import 'package:servizone_app/data/providers/catalog_service.dart';
 import 'package:servizone_app/data/providers/catalog_notifier.dart';
 import 'package:servizone_app/data/providers/admin_audit_service.dart';
+import 'package:servizone_app/data/providers/booking_api_service.dart';
 import 'package:servizone_app/data/repositories/auth_repository_impl.dart';
 import 'package:servizone_app/data/repositories/catalog_repository_impl.dart';
 import 'package:servizone_app/data/repositories/booking_repository_impl.dart';
@@ -14,6 +15,7 @@ import 'package:servizone_app/domain/repositories/booking_repository.dart';
 import 'package:servizone_app/presentation/viewmodels/auth_view_model.dart';
 import 'package:servizone_app/presentation/viewmodels/catalog_view_model.dart';
 import 'package:servizone_app/presentation/viewmodels/booking_view_model.dart';
+import 'package:servizone_app/presentation/viewmodels/solicitudes_reservas_view_model.dart';
 
 final locator = GetIt.instance;
 
@@ -26,6 +28,10 @@ void setupLocator() {
     () => ApiClient(baseUrl: ApiConfig.catalogBaseUrl),
     instanceName: 'catalog',
   );
+  locator.registerLazySingleton<ApiClient>(
+    () => ApiClient(baseUrl: ApiConfig.bookingBaseUrl),
+    instanceName: 'booking',
+  );
 
   locator.registerLazySingleton<AuthService>(
       () => AuthService(locator<ApiClient>(instanceName: 'auth')));
@@ -34,6 +40,8 @@ void setupLocator() {
   locator.registerLazySingleton<CatalogNotifier>(
       () => CatalogNotifier(locator<CatalogService>()));
   locator.registerLazySingleton<AdminAuditService>(() => AdminAuditService());
+  locator.registerLazySingleton<BookingApiService>(
+      () => BookingApiService(locator<ApiClient>(instanceName: 'booking')));
 
   locator.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(locator<AuthService>()));
   locator.registerLazySingleton<CatalogRepository>(() => CatalogRepositoryImpl(locator<CatalogService>()));
@@ -43,4 +51,6 @@ void setupLocator() {
   locator.registerFactory<AuthViewModel>(() => AuthViewModel(locator<AuthRepository>()));
   locator.registerFactory<CatalogViewModel>(() => CatalogViewModel(locator<CatalogRepository>()));
   locator.registerLazySingleton<BookingViewModel>(() => BookingViewModel(locator<BookingRepository>()));
+  locator.registerFactory<SolicitudesReservasViewModel>(
+      () => SolicitudesReservasViewModel(locator<BookingApiService>()));
 }
