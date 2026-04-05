@@ -12,4 +12,10 @@ class ApiConfig {
     if (env.isNotEmpty) return env;
     return kIsWeb ? 'http://localhost:5257/api' : 'https://10.0.2.2:5257/api';
   }
+
+  static String get bookingBaseUrl {
+    const env = String.fromEnvironment('BOOKING_BASE_URL', defaultValue: '');
+    if (env.isNotEmpty) return env;
+    return kIsWeb ? 'http://localhost:5170/api' : 'http://10.0.2.2:5170/api';
+  }
 }
