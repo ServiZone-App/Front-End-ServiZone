@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
 import 'package:servizone_app/core/locator.dart';
+import 'package:servizone_app/data/models/booking/resena_dto.dart';
 import 'package:servizone_app/data/models/booking/reserva_dto.dart';
 import 'package:servizone_app/data/models/booking_model.dart';
+import 'package:servizone_app/data/providers/booking_api_service.dart';
 import 'package:servizone_app/presentation/viewmodels/solicitudes_reservas_view_model.dart';
 import 'package:servizone_app/presentation/widgets/shared/booking_detail_sheet.dart';
 import 'package:servizone_app/presentation/widgets/shared/status_badge.dart';
@@ -45,6 +47,7 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
   BookingModel _toBookingModel(ReservaDto dto) {
     return BookingModel(
       id: dto.solicitudId.toString(),
+      servicioProveedorId: dto.servicioProveedorId,
       clientId: dto.clienteId.toString(),
       providerId: dto.proveedorId.toString(),
       clientName: dto.clienteNombre,
@@ -406,12 +409,26 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
     );
   }
 
-  void _showBookingDetails(BookingModel booking) {
+  Future<void> _showBookingDetails(BookingModel booking) async {
+    ResenaDto? resena;
+    if (booking.status == BookingStatus.completada && booking.servicioProveedorId > 0) {
+      final apiService = locator<BookingApiService>();
+      final res = await apiService.getResenasServicio(booking.servicioProveedorId);
+      if (res.success && res.data != null) {
+        final solicitudId = int.tryParse(booking.id) ?? 0;
+        resena = res.data!.where((r) => r.solicitudId == solicitudId).firstOrNull;
+      }
+    }
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => BookingDetailSheet(booking: booking, isProvider: widget.isProvider),
+      builder: (context) => BookingDetailSheet(
+        booking: booking,
+        isProvider: widget.isProvider,
+        resena: resena,
+      ),
     );
   }
 
