@@ -6,6 +6,8 @@ import 'package:servizone_app/core/locator.dart';
 import 'package:servizone_app/data/models/booking/reserva_dto.dart';
 import 'package:servizone_app/data/models/booking_model.dart';
 import 'package:servizone_app/presentation/viewmodels/solicitudes_reservas_view_model.dart';
+import 'package:servizone_app/data/models/booking/resena_dto.dart';
+import 'package:servizone_app/data/providers/booking_api_service.dart';
 import 'package:servizone_app/presentation/widgets/shared/booking_detail_sheet.dart';
 import 'package:servizone_app/presentation/widgets/shared/status_badge.dart';
 
@@ -40,6 +42,7 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
   BookingModel _toBookingModel(ReservaDto dto) {
     return BookingModel(
       id: dto.solicitudId.toString(),
+      servicioProveedorId: dto.servicioProveedorId,
       clientId: dto.clienteId.toString(),
       providerId: dto.proveedorId.toString(),
       clientName: dto.clienteNombre,
@@ -76,12 +79,30 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
 
   Future<void> _load() async {
     await _vm.cargarMisBookings();
+    await _checkExistingRatings();
+  }
+
+  Future<void> _checkExistingRatings() async {
+    final completadas = _vm.misBookings.where((dto) => dto.estado == 'completado');
+    final apiService = locator<BookingApiService>();
+    final checkedServiceIds = <int>{};
+    for (final dto in completadas) {
+      final svcId = dto.servicioProveedorId;
+      if (svcId <= 0 || checkedServiceIds.contains(svcId)) continue;
+      checkedServiceIds.add(svcId);
+      final res = await apiService.getResenasServicio(svcId);
+      if (res.success && res.data != null) {
+        for (final r in res.data!) {
+          if (mounted) setState(() => _ratedIds.add(r.solicitudId.toString()));
+        }
+      }
+    }
   }
 
   List<BookingModel> get _bookingsNoPendientes =>
       _vm.misBookings
           .map(_toBookingModel)
-          .where((b) => b.status == BookingStatus.enProceso)
+          .where((b) => b.status == BookingStatus.enProceso || b.status == BookingStatus.completada)
           .toList();
 
   List<BookingModel> get _filteredBookings {
@@ -142,6 +163,7 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
   void _showRatingDialog(BookingModel booking) {
     double selectedRating = 5;
     final reviewController = TextEditingController();
+    bool isSubmitting = false;
 
     showDialog(
       context: context,
@@ -202,7 +224,8 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () async {
+                    onPressed: isSubmitting ? null : () async {
+                      setDialogState(() => isSubmitting = true);
                       final solicitudId = int.tryParse(booking.id) ?? 0;
                       final comentario = reviewController.text.trim();
                       final res = await _vm.dejarResena(
@@ -226,8 +249,13 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Enviar',
-                        style: TextStyle(color: Colors.white)),
+                    child: isSubmitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Enviar', style: TextStyle(color: Colors.white)),
                   ),
                 ),
               ],
@@ -367,12 +395,22 @@ class _ClientBookingsScreenState extends State<ClientBookingsScreen> {
     );
   }
 
-  void _showBookingDetails(BookingModel booking) {
+  Future<void> _showBookingDetails(BookingModel booking) async {
+    ResenaDto? resena;
+    if (booking.status == BookingStatus.completada && booking.servicioProveedorId > 0) {
+      final apiService = locator<BookingApiService>();
+      final res = await apiService.getResenasServicio(booking.servicioProveedorId);
+      if (res.success && res.data != null) {
+        final solicitudId = int.tryParse(booking.id) ?? 0;
+        resena = res.data!.where((r) => r.solicitudId == solicitudId).firstOrNull;
+      }
+    }
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => BookingDetailSheet(booking: booking),
+      builder: (context) => BookingDetailSheet(booking: booking, resena: resena),
     );
   }
 
