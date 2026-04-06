@@ -65,26 +65,6 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  bool _validarCampos() {
-    if (correoController.text.isEmpty || passwordController.text.isEmpty) {
-      _showError('Todos los campos son obligatorios');
-      return false;
-    }
-    if (!_isValidEmail(correoController.text)) {
-      _showError('El correo no es válido');
-      return false;
-    }
-    if (passwordController.text.length < 6) {
-      _showError('La contraseña debe tener al menos 6 caracteres');
-      return false;
-    }
-    return true;
-  }
-
-  bool _isValidEmail(String email) {
-    return RegExp(r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
-  }
-
   void _validateForm() {
     if (!_formKey.currentState!.validate()) return;
     HapticFeedback.lightImpact();
@@ -97,10 +77,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _login() async {
-    if (!_validarCampos()) {
-      setState(() => _showLoadingScreen = false);
-      return;
-    }
     setState(() => loading = true);
 
     final email = correoController.text.trim();
