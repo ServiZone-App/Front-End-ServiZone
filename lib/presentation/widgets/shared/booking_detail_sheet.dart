@@ -102,8 +102,8 @@ class BookingDetailSheet extends StatelessWidget {
             ),
           ),
           
-          // Reseña del cliente (solo visible para el proveedor cuando hay reseña)
-          if (isProvider && resena != null) ...[
+          // Reseña (visible cuando hay reseña en reservas completadas)
+          if (resena != null) ...[
             const SizedBox(height: 20),
             Container(
               width: double.infinity,
@@ -116,13 +116,13 @@ class BookingDetailSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.star_rounded, color: Color(0xFFFFA726), size: 18),
-                      SizedBox(width: 6),
+                      const Icon(Icons.star_rounded, color: Color(0xFFFFA726), size: 18),
+                      const SizedBox(width: 6),
                       Text(
-                        'Reseña del cliente',
-                        style: TextStyle(
+                        isProvider ? 'Reseña del cliente' : 'Tu reseña',
+                        style: const TextStyle(
                           fontFamily: 'Poppins',
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
@@ -135,14 +135,17 @@ class BookingDetailSheet extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        resena!.clienteNombre ?? 'Cliente',
-                        style: const TextStyle(
-                          fontFamily: 'Roboto',
-                          fontSize: 13,
-                          color: textGray,
-                        ),
-                      ),
+                      if (isProvider)
+                        Text(
+                          resena!.clienteNombre ?? 'Cliente',
+                          style: const TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 13,
+                            color: textGray,
+                          ),
+                        )
+                      else
+                        const SizedBox.shrink(),
                       Row(
                         children: List.generate(
                           5,
