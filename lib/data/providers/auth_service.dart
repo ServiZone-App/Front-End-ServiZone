@@ -614,7 +614,7 @@ class AuthService {
   
   Future<Map<String, dynamic>> getAllUsuarios() async {
     try {
-      final response = await _apiClient.getRequest('/admin/usuarios');
+      final response = await _apiClient.getRequest('/admin/usuarios/Lista-de-usuarios');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         final data = (decoded is Map && (decoded.containsKey('Data') || decoded.containsKey('data')))
