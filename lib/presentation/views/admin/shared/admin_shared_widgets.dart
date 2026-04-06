@@ -363,14 +363,17 @@ class AdminActionCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Text(
-                label, 
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? Colors.white : darkGray,
-                )
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white : darkGray,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               if (isDisabled)
                 const Icon(Icons.lock_clock_rounded, size: 16, color: textGray)
               else
