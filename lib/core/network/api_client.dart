@@ -79,7 +79,9 @@ class ApiClient extends http.BaseClient {
         // 3. Interceptar 401 Unauthorized
         if (response.statusCode == 401) {
           final path = attemptRequest.url.path.toLowerCase();
-          if (!path.contains('/perfil/')) {
+          final isAuthEndpoint = path.contains('/auth/login') ||
+              path.contains('/auth/register');
+          if (!path.contains('/perfil/') && !isAuthEndpoint) {
             await _clearSession();
             onSessionExpired?.call();
           }
