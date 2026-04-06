@@ -63,7 +63,7 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
   }
 
   List<ServicioProveedor> get _filteredServices {
-    var list = List<ServicioProveedor>.from(_notifier.servicios);
+    var list = _notifier.servicios.where((s) => s.estado).toList();
 
     // Búsqueda por nombre del servicio
     if (_searchQuery.isNotEmpty) {
