@@ -510,7 +510,7 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: s.estado ? Colors.white : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(color: cardShadow, blurRadius: 10, offset: Offset(0, 2))
