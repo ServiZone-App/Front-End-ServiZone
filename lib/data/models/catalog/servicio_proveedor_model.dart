@@ -42,16 +42,25 @@ class ServicioProveedor {
       proveedorId: ((json['ProveedorId'] ?? json['proveedorId']) as num).toInt(),
       proveedorNombre: (json['ProveedorNombre'] ?? json['proveedorNombre']) as String?,
       precioBase: ((json['PrecioBase'] ?? json['precioBase']) as num).toDouble(),
-      estado: (json['Estado'] ?? json['estado'] ?? true) as bool,
+      estado: _parseBool(json['Estado'] ?? json['estado'], fallback: true),
       descripcion: (json['Descripcion'] ?? json['descripcion']) as String?,
       duracionEstimadaMin: ((json['DuracionEstimadaMin'] ?? json['duracionEstimadaMin'] ?? 60) as num).toInt(),
       ratingMedia: ((json['RatingMedia'] ?? json['ratingMedia'] ?? 0.0) as num).toDouble(),
       ratingPromedio: (json['RatingPromedio'] ?? json['ratingPromedio']) != null
           ? ((json['RatingPromedio'] ?? json['ratingPromedio']) as num).toDouble()
           : null,
-      estaActivo: (json['EstaActivo'] ?? json['estaActivo'] ?? true) as bool,
+      estaActivo: _parseBool(json['EstaActivo'] ?? json['estaActivo'], fallback: true),
       fechaCreacion: rawFecha != null ? DateTime.tryParse(rawFecha.toString()) : null,
     );
+  }
+
+  static bool _parseBool(dynamic value, {required bool fallback}) {
+    if (value == null) return fallback;
+    if (value is bool) return value;
+    final s = value.toString().toLowerCase().trim();
+    if (s == 'true' || s == '1' || s == 'activo') return true;
+    if (s == 'false' || s == '0' || s == 'inactivo') return false;
+    return fallback;
   }
 
   /// Serializa para POST/PUT — el backend acepta PascalCase.
