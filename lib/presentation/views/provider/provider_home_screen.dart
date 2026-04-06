@@ -129,7 +129,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   List<ReservaDto> get _reservasEnProceso =>
       _reservasVm.reservasProveedor.where((r) => r.estado == 'en_proceso').toList();
 
-  int get _totalReservas => _reservasVm.reservasProveedor.length;
+  int get _totalReservas => _reservasVm.reservasProveedor.where((r) => r.estado == 'en_proceso').length;
 
   double get _totalIngresos => _reservasVm.reservasProveedor
       .where((r) => r.estado == 'completado')
@@ -204,7 +204,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                         icon: Icons.calendar_today_rounded,
                         iconColor: const Color(0xFF1976D2),
                         value: '$_totalReservas',
-                        label: 'Total reservas',
+                        label: 'Reservas activas',
                       ),
                       _buildVerticalDivider(),
                       _buildMetric(
