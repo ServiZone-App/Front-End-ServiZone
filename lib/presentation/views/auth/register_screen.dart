@@ -120,7 +120,17 @@ class _RegisterScreenState extends State<RegisterScreen>
       });
       _limpiarFormulario();
     } else {
-      _showError(result['message'] ?? 'Error del servidor');
+      String errorMsg = result['message'] ?? 'Error del servidor';
+      final lower = errorMsg.toLowerCase();
+      if (lower.contains('already') ||
+          lower.contains('duplicate') ||
+          lower.contains('taken') ||
+          lower.contains('registrado') ||
+          lower.contains('existe') ||
+          lower.contains('en uso')) {
+        errorMsg = 'El correo ya se encuentra registrado. Intenta con otro o inicia sesión.';
+      }
+      _showError(errorMsg);
       setState(() {
         _showLoadingScreen = false;
       });
@@ -404,6 +414,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 label: 'Contraseña',
                                 controller: _pass,
                                 isPassword: true,
+                                minLength: 6,
                               ),
                               const SizedBox(height: 16),
 
