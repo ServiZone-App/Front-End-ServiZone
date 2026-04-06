@@ -271,9 +271,9 @@ class _ProvidersManagementScreenState extends State<ProvidersManagementScreen> {
             const Divider(height: 32),
             Row(
               children: [
-                 _buildInfoItem(Icons.email_outlined, provider.email),
-                 const Spacer(),
-                 _buildRating(provider.rating),
+                Expanded(child: _buildInfoItem(Icons.email_outlined, provider.email)),
+                const SizedBox(width: 12),
+                _buildRating(provider.rating),
               ],
             ),
             const SizedBox(height: 16),
@@ -324,15 +324,19 @@ class _ProvidersManagementScreenState extends State<ProvidersManagementScreen> {
   Widget _buildInfoItem(IconData icon, String text) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 14, color: isDark ? Colors.white54 : textGray),
         const SizedBox(width: 6),
-        Text(
-          text, 
-          style: TextStyle(
-            fontSize: 13, 
-            color: isDark ? Colors.white54 : textGray
-          )
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? Colors.white54 : textGray
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ],
     );
