@@ -23,7 +23,6 @@ class _ProviderBookingsScreenState extends State<ProviderBookingsScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   final int _monthsFilter = 1;
-  BookingStatus? _statusFilter;
   String _searchQuery = '';
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -112,7 +111,6 @@ class _ProviderBookingsScreenState extends State<ProviderBookingsScreen> {
     return mapped.where((b) {
       if (b.status != BookingStatus.enProceso) return false;
       if (!b.date.isAfter(cutoff)) return false;
-      if (_statusFilter != null && b.status != _statusFilter) return false;
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         final hay = '${b.clientName} ${b.serviceName} ${b.address}'.toLowerCase();
@@ -467,12 +465,6 @@ class _ProviderBookingsScreenState extends State<ProviderBookingsScreen> {
         backgroundColor: Colors.white,
         foregroundColor: textGray,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: _showFilterSheet,
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -490,109 +482,6 @@ class _ProviderBookingsScreenState extends State<ProviderBookingsScreen> {
         ],
       ),
       bottomNavigationBar: const ProviderBottomNav(currentIndex: 3),
-    );
-  }
-
-  void _showFilterSheet() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Filtros de Reservas',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: textGray)),
-              const SizedBox(height: 20),
-              Wrap(
-                spacing: 8,
-                children: [
-                  _buildStatusFilterChip(
-                      'Todas', _statusFilter == null, context,
-                      () => setModalState(() => _statusFilter = null)),
-                  _buildStatusFilterChip(
-                      'En Revisión',
-                      _statusFilter == BookingStatus.enRevision,
-                      context,
-                      () => setModalState(
-                          () => _statusFilter = BookingStatus.enRevision)),
-                  _buildStatusFilterChip(
-                      'En Proceso',
-                      _statusFilter == BookingStatus.enProceso,
-                      context,
-                      () => setModalState(
-                          () => _statusFilter = BookingStatus.enProceso)),
-                  _buildStatusFilterChip(
-                      'Completadas',
-                      _statusFilter == BookingStatus.completada,
-                      context,
-                      () => setModalState(
-                          () => _statusFilter = BookingStatus.completada)),
-                  _buildStatusFilterChip(
-                      'Canceladas',
-                      _statusFilter == BookingStatus.cancelada,
-                      context,
-                      () => setModalState(
-                          () => _statusFilter = BookingStatus.cancelada)),
-                  _buildStatusFilterChip(
-                      'Rechazadas',
-                      _statusFilter == BookingStatus.rechazada,
-                      context,
-                      () => setModalState(
-                          () => _statusFilter = BookingStatus.rechazada)),
-                ],
-              ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    setState(() {});
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryBlue,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('Aplicar Filtros',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusFilterChip(
-      String label, bool isSelected, BuildContext ctx, VoidCallback onTap) {
-    return FilterChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (_) => onTap(),
-      selectedColor: primaryBlue.withValues(alpha: 0.1),
-      checkmarkColor: primaryBlue,
-      labelStyle: TextStyle(
-        color: isSelected ? primaryBlue : textGray,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        fontSize: 12,
-      ),
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      side: BorderSide(
-          color: isSelected ? primaryBlue : Colors.transparent),
     );
   }
 
