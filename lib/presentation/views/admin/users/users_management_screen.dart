@@ -163,71 +163,62 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _showUserDetails(user),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
               children: [
-                _buildAvatar(user.name),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold, 
-                          fontSize: 16, 
-                          color: isDark ? Colors.white : darkGray
-                        ),
+                Row(
+                  children: [
+                    _buildAvatar(user.name),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user.name,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: isDark ? Colors.white : darkGray
+                            ),
+                          ),
+                          Text(
+                            user.email,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? Colors.white70 : textGray
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                      Text(
-                        user.email, 
-                        style: TextStyle(
-                          fontSize: 13, 
-                          color: isDark ? Colors.white70 : textGray
-                        )
-                      ),
-                    ],
-                  ),
+                    ),
+                    AdminDataBadge.status(user.isActive ? 'ACTIVO' : 'INACTIVO'),
+                  ],
                 ),
-                AdminDataBadge.status(user.isActive ? 'ACTIVO' : 'INACTIVO'),
-              ],
-            ),
-            const Divider(height: 32),
-            Row(
-              children: [
-                _buildInfoItem(Icons.phone_rounded, user.phone),
-                const SizedBox(width: 24),
-                _buildInfoItem(Icons.cake_rounded, '${user.age} años'),
-                const Spacer(),
-                if (user.isPremium) 
-                  const Icon(Icons.star_rounded, size: 18, color: Colors.amber),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Expanded(
-                  child: AdminActionCard(
-                    label: 'Suspender Usuario',
-                    isDisabled: true,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: AdminActionCard(
-                    label: 'Detalles Cuenta',
-                    onTap: () {
-                      _showUserDetails(user);
-                    },
-                  ),
+                const Divider(height: 32),
+                Row(
+                  children: [
+                    _buildInfoItem(Icons.phone_rounded, user.phone),
+                    const SizedBox(width: 24),
+                    _buildInfoItem(Icons.cake_rounded, '${user.age} años'),
+                    const Spacer(),
+                    if (user.isPremium)
+                      const Icon(Icons.star_rounded, size: 18, color: Colors.amber),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: textGray),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -276,56 +267,105 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _buildAvatar(user.name),
-                const SizedBox(width: 16),
-                Text(
-                  user.name, 
-                  style: TextStyle(
-                    fontSize: 18, 
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : darkGray
-                  )
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            _buildDetailField('Dirección', user.address),
-            _buildDetailField('Miembro desde', '${user.createdAt.day}/${user.createdAt.month}/${user.createdAt.year}'),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                AdminDataBadge.status(user.isActive ? 'ACTIVO' : 'INACTIVO'),
-                const SizedBox(width: 8),
-                AdminDataBadge.status(user.isVerified ? 'VERIFICADO' : 'NO VERIFICADO'),
-                const SizedBox(width: 8),
-                if (user.isPremium) AdminDataBadge.status('PREMIUM'),
-              ],
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryBlue,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('CERRAR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
-            ),
-          ],
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        children: [
+                          _buildAvatar(user.name),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  user.name,
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : darkGray,
+                                  ),
+                                ),
+                                Text(
+                                  'ID: ${user.id}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? Colors.white54 : textGray,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Badges
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          AdminDataBadge.status(user.isActive ? 'ACTIVO' : 'INACTIVO'),
+                          AdminDataBadge.status(user.isVerified ? 'VERIFICADO' : 'NO VERIFICADO'),
+                          if (user.isPremium) AdminDataBadge.status('PREMIUM'),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      // Info fields
+                      _buildDetailField('Correo electrónico', user.email),
+                      _buildDetailField('Teléfono', user.phone.isNotEmpty ? user.phone : '—'),
+                      _buildDetailField('Dirección', user.address.isNotEmpty ? user.address : '—'),
+                      _buildDetailField('Edad', '${user.age} años'),
+                      _buildDetailField(
+                        'Miembro desde',
+                        '${user.createdAt.day.toString().padLeft(2, '0')}/${user.createdAt.month.toString().padLeft(2, '0')}/${user.createdAt.year}',
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryBlue,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('CERRAR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
