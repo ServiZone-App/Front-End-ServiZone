@@ -345,8 +345,12 @@ class _CreateServiceBottomSheetState extends State<CreateServiceBottomSheet> {
                   style: const TextStyle(
                       fontWeight: FontWeight.w500, color: textGray),
                 ),
-                subtitle: const Text('El servicio será visible para los clientes',
-                    style: TextStyle(fontSize: 12, color: textGray)),
+                subtitle: Text(
+                  _estado
+                      ? 'El servicio será visible para los clientes'
+                      : 'El servicio no será visible para los clientes',
+                  style: const TextStyle(fontSize: 12, color: textGray),
+                ),
                 value: _estado,
                 onChanged: (v) => setState(() => _estado = v),
                 activeThumbColor: primaryBlue,
