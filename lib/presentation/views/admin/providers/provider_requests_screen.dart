@@ -49,7 +49,9 @@ class _ProviderRequestsScreenState extends State<ProviderRequestsScreen> {
         if (mounted) {
           setState(() {
             _requests.clear();
-            _requests.addAll(data.map((e) => SolicitudDto.fromJson(e)).toList());
+            final parsed = data.map((e) => SolicitudDto.fromJson(e)).toList();
+            final seen = <int>{};
+            _requests.addAll(parsed.where((s) => seen.add(s.id)));
             _applyFilter(_searchQuery);
             _isLoading = false;
           });
@@ -257,6 +259,17 @@ class _ProviderRequestsScreenState extends State<ProviderRequestsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(request.usuarioCorreo, style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : textGray)),
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Icon(Icons.phone_rounded, size: 12, color: isDark ? Colors.white38 : Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(
+                    request.usuarioTelefono,
+                    style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : textGray),
+                  ),
+                ],
+              ),
               const SizedBox(height: 4),
               Row(
                 children: [
@@ -319,37 +332,39 @@ class _ProviderRequestsScreenState extends State<ProviderRequestsScreen> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => _handleRequest(request, false),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: errorRed,
-                            side: const BorderSide(color: errorRed),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  if (!['aprobada', 'rechazada'].contains(request.estado.toLowerCase())) ...[
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => _handleRequest(request, false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: errorRed,
+                              side: const BorderSide(color: errorRed),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: const Text('RECHAZAR', style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
-                          child: const Text('RECHAZAR', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => _handleRequest(request, true),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: successGreen,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            elevation: 0,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => _handleRequest(request, true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: successGreen,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 0,
+                            ),
+                            child: const Text('APROBAR', style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
-                          child: const Text('APROBAR', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -395,19 +410,30 @@ class _ProviderRequestsScreenState extends State<ProviderRequestsScreen> {
 
   Widget _buildDocItem(String url) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final rawName = url.split('/').last.split('?').first;
+    final displayName = rawName.isNotEmpty ? rawName : 'Documento';
+
     return Container(
       margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2C2C2C) : Colors.white,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade300),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.file_present_rounded, size: 16, color: primaryBlue),
           const SizedBox(width: 6),
-          Text('Certificado.pdf', style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : darkGray)),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 140),
+            child: Text(
+              displayName,
+              style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : darkGray),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
