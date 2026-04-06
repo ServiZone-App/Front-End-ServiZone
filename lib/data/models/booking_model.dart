@@ -11,6 +11,7 @@ enum BookingStatus {
 
 class BookingModel {
   final String id;
+  final int servicioProveedorId;
   final String clientId;
   final String providerId;
   final String clientName;
@@ -27,6 +28,7 @@ class BookingModel {
 
   BookingModel({
     required this.id,
+    this.servicioProveedorId = 0,
     required this.clientId,
     required this.providerId,
     required this.clientName,
@@ -44,6 +46,7 @@ class BookingModel {
 
   BookingModel copyWith({
     String? id,
+    int? servicioProveedorId,
     String? clientId,
     String? providerId,
     String? clientName,
@@ -60,6 +63,7 @@ class BookingModel {
   }) {
     return BookingModel(
       id: id ?? this.id,
+      servicioProveedorId: servicioProveedorId ?? this.servicioProveedorId,
       clientId: clientId ?? this.clientId,
       providerId: providerId ?? this.providerId,
       clientName: clientName ?? this.clientName,
