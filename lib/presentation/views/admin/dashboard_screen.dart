@@ -336,8 +336,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           ),
           Row(
             children: [
-              _buildHeaderIndicator(icon: Icons.notifications_rounded, count: 3, color: Colors.orange),
-              if (!isMobile) const SizedBox(width: 16),
               if (!isMobile) _buildHeaderIndicator(icon: Icons.message_rounded, count: 7, color: primaryBlue),
             ],
           ),
