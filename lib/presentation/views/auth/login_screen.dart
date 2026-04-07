@@ -110,10 +110,74 @@ class _LoginScreenState extends State<LoginScreen>
         }
       });
     } else {
-      _showError(result.message.isNotEmpty ? result.message : 'Credenciales incorrectas');
+      final msg = result.message.isNotEmpty ? result.message : 'Credenciales incorrectas';
+      final isBlocked = msg.toLowerCase().contains('bloqueado') ||
+          msg.toLowerCase().contains('blocked') ||
+          msg.toLowerCase().contains('suspendido');
+      if (isBlocked && mounted) {
+        setState(() => _showLoadingScreen = false);
+        _showBlockedAccountDialog(msg);
+      } else {
+        _showError(msg);
+      }
     }
 
     setState(() => loading = false);
+  }
+
+  void _showBlockedAccountDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.all(32),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.block_rounded, color: Colors.red, size: 36),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Cuenta Bloqueada',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: darkGray,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: mediumGray),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: const Text('ENTENDIDO', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showError(String message) {

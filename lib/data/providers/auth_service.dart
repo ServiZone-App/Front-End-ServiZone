@@ -103,9 +103,42 @@ class AuthService {
 
           _isLoggedIn = true;
           _currentRole = roleStr;
-          
+
           await fetchAndStoreProfile();
-          
+
+          // Para proveedores: verificar estado real contra Lista-de-Proveedores
+          if (roleStr == 'proveedor') {
+            final proveedorId = await getCurrentProveedorId();
+            if (proveedorId != null) {
+              final provResult = await getProveedoresVerificados();
+              if (provResult['success'] == true) {
+                final List<dynamic> lista =
+                    provResult['data'] is List ? provResult['data'] as List : [];
+                final dynamic match = lista.firstWhere(
+                  (p) =>
+                      p is Map<String, dynamic> &&
+                      _tryParseInt(p['usuarioId'] ?? p['UsuarioId']) == proveedorId,
+                  orElse: () => null,
+                );
+                if (match != null) {
+                  final estado = ((match as Map<String, dynamic>)['estado'] ??
+                          match['Estado'] ??
+                          '')
+                      .toString()
+                      .toLowerCase();
+                  if (estado == 'bloqueado') {
+                    await logout();
+                    return {
+                      'success': false,
+                      'message':
+                          'Tu cuenta está bloqueada. Contacta al administrador para más información.',
+                    };
+                  }
+                }
+              }
+            }
+          }
+
           return {'success': true, 'role': roleStr};
         }
       }
@@ -614,7 +647,7 @@ class AuthService {
   
   Future<Map<String, dynamic>> getAllUsuarios() async {
     try {
-      final response = await _apiClient.getRequest('/admin/usuarios/Lista-de-usuarios');
+      final response = await _apiClient.getRequest('/admin/usuarios/Lista-de-Usuarios');
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         final data = (decoded is Map && (decoded.containsKey('Data') || decoded.containsKey('data')))
@@ -661,7 +694,7 @@ class AuthService {
     try {
       final String action = aprobado ? "Aprobada" : "Rechazada";
       final response = await _apiClient.patchRequest('/Solicitud/Gestionar_solicitudes/$solicitudId', action);
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         return {'success': true, 'message': 'Solicitud $action correctamente'};
       }
       return {'success': false, 'message': _parseError(response.body)};
@@ -671,11 +704,28 @@ class AuthService {
   }
 
   Future<Map<String, dynamic>> actualizarEstadoProveedor(int proveedorId, String nuevoEstado) async {
-    // nuevoEstado debe ser "activo", "inactivo" o "bloqueado" según requerimiento.
+    // nuevoEstado: "activo" → 0, "inactivo" → 1, "bloqueado" → 2
+    final Map<String, int> estadoMap = {'activo': 0, 'inactivo': 1, 'bloqueado': 2};
+    final int estadoInt = estadoMap[nuevoEstado.toLowerCase()] ?? 0;
     try {
-      final response = await _apiClient.putRequest('/admin/proveedores/$proveedorId/estado', nuevoEstado.toLowerCase());
+      final response = await _apiClient.patchRequest('/admin/proveedores/$proveedorId/estado', estadoInt);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final decoded = jsonDecode(response.body);
+        final estadoResultante = decoded['nuevoEstado'] ?? decoded['NuevoEstado'] ?? nuevoEstado;
+        return {'success': true, 'nuevoEstado': estadoResultante.toString()};
+      }
+      return {'success': false, 'message': _parseError(response.body)};
+    } catch (e) {
+      return {'success': false, 'message': 'Error de red: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> actualizarEstadoUsuario(int userId, int estado) async {
+    // estado: 0 = activo, 1 = inactivo, 2 = bloqueado
+    try {
+      final response = await _apiClient.patchRequest('/admin/proveedores/$userId/estado', estado);
       if (response.statusCode == 200) {
-        return {'success': true, 'message': 'Estado actualizado a $nuevoEstado'};
+        return {'success': true, 'message': estado == 2 ? 'Cuenta bloqueada correctamente' : 'Cuenta activada correctamente'};
       }
       return {'success': false, 'message': _parseError(response.body)};
     } catch (e) {

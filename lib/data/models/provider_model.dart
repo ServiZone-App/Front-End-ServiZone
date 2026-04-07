@@ -8,6 +8,7 @@ class ProviderModel {
   double rating;
   int completedServices;
   bool isActive;
+  String estado;
   bool isVerified;
   final DateTime joinDate;
 
@@ -21,27 +22,56 @@ class ProviderModel {
     required this.rating,
     required this.completedServices,
     required this.isActive,
+    this.estado = 'activo',
     required this.isVerified,
     DateTime? joinDate,
   }) : joinDate = joinDate ?? DateTime.now();
 
   factory ProviderModel.fromJson(Map<String, dynamic> json) {
+    // usuarioId es el campo primario en el response del endpoint de lista
+    final id = json['usuarioId']?.toString() ??
+        json['UsuarioId']?.toString() ??
+        json['id']?.toString() ??
+        json['Id']?.toString() ??
+        '0';
+
+    final estadoRaw = json['estado'] ?? json['Estado'];
+    String estado;
+    if (estadoRaw != null) {
+      final s = estadoRaw.toString().toLowerCase();
+      if (s == 'bloqueado' || s == '2') {
+        estado = 'bloqueado';
+      } else if (s == 'inactivo' || s == '1') {
+        estado = 'inactivo';
+      } else {
+        estado = 'activo';
+      }
+    } else {
+      final active = json['esActivo'] ?? json['EsActivo'] ?? true;
+      estado = (active == true) ? 'activo' : 'inactivo';
+    }
+
+    DateTime joinDate;
+    try {
+      final raw = json['fechaRegistro'] ?? json['FechaRegistro'];
+      joinDate = raw != null ? DateTime.parse(raw.toString()) : DateTime.now();
+    } catch (_) {
+      joinDate = DateTime.now();
+    }
+
     return ProviderModel(
-      id: json['id']?.toString() ?? json['Id']?.toString() ?? '0',
-      name: json['nombre'] ?? json['Nombre'] ?? 'Proveedor',
+      id: id,
+      name: json['nombreCompleto'] ?? json['NombreCompleto'] ?? json['nombre'] ?? json['Nombre'] ?? 'Proveedor',
       email: json['correo'] ?? json['Correo'] ?? '',
       phone: json['telefono'] ?? json['Telefono'] ?? '',
       category: json['categoria'] ?? json['Categoria'] ?? 'Sin categoría',
       address: json['direccion'] ?? json['Direccion'] ?? '',
       rating: (json['calificacion'] ?? json['Calificacion'] ?? 0.0).toDouble(),
       completedServices: json['serviciosCompletados'] ?? json['ServiciosCompletados'] ?? 0,
-      isActive: json['esActivo'] ?? json['EsActivo'] ?? true,
+      isActive: estado == 'activo',
+      estado: estado,
       isVerified: json['esVerificado'] ?? json['EsVerificado'] ?? true,
-      joinDate: json['fechaRegistro'] != null 
-          ? DateTime.parse(json['fechaRegistro']) 
-          : (json['FechaRegistro'] != null 
-              ? DateTime.parse(json['FechaRegistro']) 
-              : DateTime.now()),
+      joinDate: joinDate,
     );
   }
 }

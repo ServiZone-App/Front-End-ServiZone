@@ -95,54 +95,154 @@ class _ProvidersManagementScreenState extends State<ProvidersManagementScreen> {
     }));
   }
 
-  Future<void> _toggleProviderStatus(ProviderModel provider) async {
-    final bool newStatus = !provider.isActive;
-    final String statusString = newStatus ? 'activo' : 'inactivo';
-
+  Future<void> _handleBlock(ProviderModel provider) async {
     setState(() => _isProcessing = true);
-
     try {
-      // Intento de actualización real basado en el método añadido a AuthService
-      final result = await _authService.actualizarEstadoProveedor(
-          int.tryParse(provider.id) ?? 0, statusString);
-
-      if (result['success']) {
+      final id = int.tryParse(provider.id) ?? 0;
+      final result = await _authService.actualizarEstadoProveedor(id, 'bloqueado');
+      if (!mounted) return;
+      if (result['success'] == true) {
+        final index = _providers.indexWhere((p) => p.id == provider.id);
+        if (index != -1) {
+          _providers[index].estado = 'bloqueado';
+          _providers[index].isActive = false;
+        }
+        setState(() => _applyFilters());
         await _auditService.logAction(
-          newStatus ? 'ACTIVACIÓN PROVEEDOR' : 'SUSPENSIÓN PROVEEDOR',
-          'El proveedor ${provider.name} (#${provider.id}) ha sido marcado como $statusString.'
+          'BLOQUEO PROVEEDOR',
+          'El proveedor ${provider.name} (#${provider.id}) ha sido bloqueado.',
         );
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Proveedor ${provider.name} ahora está $statusString'),
-              backgroundColor: newStatus ? successGreen : Colors.orange,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-        _loadProviders();
+        _showResultModal(
+          title: 'Cuenta Bloqueada',
+          message: 'La cuenta de ${provider.name} ha sido bloqueada correctamente.',
+          isSuccess: true,
+          icon: Icons.block_rounded,
+          color: errorRed,
+        );
       } else {
-        // Si el endpoint no existe o falla, seguimos la instrucción del usuario
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Funcionalidad en desarrollo: Pendiente de integración con API de estados completa'),
-              backgroundColor: primaryBlue,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+        _showResultModal(
+          title: 'Error al Bloquear',
+          message: result['message'] ?? 'No se pudo bloquear la cuenta.',
+          isSuccess: false,
+          icon: Icons.error_outline_rounded,
+          color: errorRed,
+        );
       }
     } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: errorRed),
-          );
-        }
+      if (mounted) {
+        _showResultModal(
+          title: 'Error',
+          message: 'Ocurrió un error inesperado: $e',
+          isSuccess: false,
+          icon: Icons.error_outline_rounded,
+          color: errorRed,
+        );
+      }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
+  }
+
+  Future<void> _handleUnblock(ProviderModel provider) async {
+    setState(() => _isProcessing = true);
+    try {
+      final id = int.tryParse(provider.id) ?? 0;
+      final result = await _authService.actualizarEstadoProveedor(id, 'activo');
+      if (!mounted) return;
+      if (result['success'] == true) {
+        final index = _providers.indexWhere((p) => p.id == provider.id);
+        if (index != -1) {
+          _providers[index].estado = 'activo';
+          _providers[index].isActive = true;
+        }
+        setState(() => _applyFilters());
+        await _auditService.logAction(
+          'DESBLOQUEO PROVEEDOR',
+          'El proveedor ${provider.name} (#${provider.id}) ha sido desbloqueado.',
+        );
+        _showResultModal(
+          title: 'Cuenta Activada',
+          message: 'La cuenta de ${provider.name} ha sido activada correctamente.',
+          isSuccess: true,
+          icon: Icons.check_circle_outline_rounded,
+          color: successGreen,
+        );
+      } else {
+        _showResultModal(
+          title: 'Error al Desbloquear',
+          message: result['message'] ?? 'No se pudo activar la cuenta.',
+          isSuccess: false,
+          icon: Icons.error_outline_rounded,
+          color: errorRed,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showResultModal(
+          title: 'Error',
+          message: 'Ocurrió un error inesperado: $e',
+          isSuccess: false,
+          icon: Icons.error_outline_rounded,
+          color: errorRed,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  void _showResultModal({
+    required String title,
+    required String message,
+    required bool isSuccess,
+    required IconData icon,
+    required Color color,
+  }) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 40),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: const TextStyle(fontSize: 14, color: textGray),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: color,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('ACEPTAR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -265,7 +365,7 @@ class _ProvidersManagementScreenState extends State<ProvidersManagementScreen> {
                     ],
                   ),
                 ),
-                AdminDataBadge.status(provider.isActive ? 'ACTIVO' : 'INACTIVO'),
+                AdminDataBadge.status(provider.estado),
               ],
             ),
             const Divider(height: 32),
@@ -280,10 +380,15 @@ class _ProvidersManagementScreenState extends State<ProvidersManagementScreen> {
             Row(
               children: [
                 Expanded(
-                  child: AdminActionCard(
-                    label: provider.isActive ? 'Desactivar Cuenta' : 'Activar Cuenta',
-                    onTap: () => _toggleProviderStatus(provider),
-                  ),
+                  child: provider.estado == 'activo'
+                      ? AdminActionCard(
+                          label: 'Bloquear Cuenta',
+                          onTap: () => _handleBlock(provider),
+                        )
+                      : AdminActionCard(
+                          label: 'Desbloquear Cuenta',
+                          onTap: () => _handleUnblock(provider),
+                        ),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(

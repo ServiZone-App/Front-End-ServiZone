@@ -131,6 +131,17 @@ class AdminDataBadge extends StatelessWidget {
       case 'verificada':
       case 'premium':
         return AdminDataBadge(label: status.toUpperCase(), color: primaryBlue);
+      case 'proveedor':
+      case 'provider':
+        return const AdminDataBadge(label: 'PROVEEDOR', color: Colors.deepPurple);
+      case 'cliente':
+      case 'client':
+      case 'user':
+      case 'usuario':
+        return const AdminDataBadge(label: 'CLIENTE', color: textGray);
+      case 'admin':
+      case 'administrador':
+        return const AdminDataBadge(label: 'ADMIN', color: Colors.indigo);
       default:
         return AdminDataBadge(label: status.toUpperCase(), color: textGray);
     }
