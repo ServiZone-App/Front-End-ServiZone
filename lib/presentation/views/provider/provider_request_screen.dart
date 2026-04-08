@@ -17,17 +17,109 @@ class _ProviderRequestScreenState extends State<ProviderRequestScreen> {
   final _formKey = GlobalKey<FormState>();
   final _descriptionController = TextEditingController();
   final _experienceController = TextEditingController();
-  
+
   bool _isLoading = false;
+  bool _isCheckingStatus = true;
+  bool _isBlocked = false;
   // Guardamos los PlatformFile en lugar de File (de dart:io) para compatibilidad Web
   final List<PlatformFile> _selectedFiles = [];
   final List<String> _allowedExtensions = ['pdf', 'doc', 'docx'];
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBlockedStatus();
+  }
 
   @override
   void dispose() {
     _descriptionController.dispose();
     _experienceController.dispose();
     super.dispose();
+  }
+
+  int? _parseId(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString());
+  }
+
+  Future<void> _checkBlockedStatus() async {
+    final authService = locator<AuthService>();
+    final userId = await authService.getCurrentClienteId();
+
+    if (!mounted) return;
+
+    if (userId == null) {
+      setState(() => _isCheckingStatus = false);
+      return;
+    }
+
+    final result = await authService.getProveedoresVerificados();
+    if (!mounted) return;
+
+    bool blocked = false;
+    if (result['success'] == true && result['data'] is List) {
+      final lista = result['data'] as List;
+      final match = lista.firstWhere(
+        (p) =>
+            p is Map<String, dynamic> &&
+            _parseId(p['usuarioId'] ?? p['UsuarioId']) == userId,
+        orElse: () => null,
+      );
+      if (match != null) {
+        final estado =
+            ((match as Map<String, dynamic>)['estado'] ?? match['Estado'] ?? '')
+                .toString()
+                .toLowerCase();
+        blocked = estado == 'bloqueado';
+      }
+    }
+
+    setState(() {
+      _isBlocked = blocked;
+      _isCheckingStatus = false;
+    });
+
+    if (blocked) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showBlockedDialog());
+    }
+  }
+
+  void _showBlockedDialog() {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.block_rounded, color: errorRed, size: 28),
+            SizedBox(width: 10),
+            Text('Cuenta bloqueada', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Tu cuenta se encuentra bloqueada. No puedes enviar solicitudes de proveedor. Contacta al administrador para más información.',
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: errorRed,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _pickFiles() async {
@@ -68,6 +160,11 @@ class _ProviderRequestScreenState extends State<ProviderRequestScreen> {
   }
 
   Future<void> _submitRequest() async {
+    if (_isBlocked) {
+      _showBlockedDialog();
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       HapticFeedback.vibrate();
       return;
@@ -162,7 +259,9 @@ class _ProviderRequestScreenState extends State<ProviderRequestScreen> {
         centerTitle: true,
         iconTheme: const IconThemeData(color: primaryBlue),
       ),
-      body: SingleChildScrollView(
+      body: _isCheckingStatus
+          ? const Center(child: CircularProgressIndicator(color: primaryBlue))
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
