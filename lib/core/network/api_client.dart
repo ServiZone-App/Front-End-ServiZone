@@ -59,15 +59,15 @@ class ApiClient extends http.BaseClient {
           attemptRequest.headers['Authorization'] = 'Bearer $token';
         }
 
-        // 2. Enviar petición inicial con timeout optimizado
+        // 2. Enviar petición inicial con timeout extendido (cold start en Render)
         var response = await _inner.send(attemptRequest).timeout(
-          const Duration(seconds: 30),
+          const Duration(seconds: 90),
           onTimeout: () {
             if (kDebugMode) {
               debugPrint('==== TIMEOUT DETECTADO EN API CLIENT ====');
               debugPrint('URL: ${attemptRequest.url}');
             }
-            throw http.ClientException('La conexión ha excedido el tiempo de espera (30s).');
+            throw http.ClientException('La conexión ha excedido el tiempo de espera (90s).');
           },
         );
 
