@@ -567,23 +567,6 @@ class _LoginScreenState extends State<LoginScreen>
 
                                 const SizedBox(height: 12),
 
-                                // Botón ¿Olvidaste tu contraseña?
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: TextButton(
-                                    onPressed: () {
-                                      Navigator.pushNamed(context, AppRoutes.forgotPassword);
-                                    },
-                                    child: const Text(
-                                      '¿Olvidaste tu contraseña?',
-                                      style: TextStyle(
-                                        color: primaryBlue,
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ),
 
                                 const SizedBox(height: 20),
 
