@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:servizone_app/core/locator.dart';
 import 'package:servizone_app/core/routes/app_routes.dart';
 import 'package:servizone_app/data/providers/auth_service.dart';
+import 'package:servizone_app/data/providers/catalog_notifier.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
 import 'package:servizone_app/presentation/views/provider/profile/provider_edit_profile_screen.dart';
 
@@ -45,6 +46,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   }
 
   Future<void> _performLogout() async {
+    locator<CatalogNotifier>().clearProviderSession();
     await locator<AuthService>().logout();
     if (mounted) {
       Navigator.pushNamedAndRemoveUntil(
