@@ -386,7 +386,7 @@ class _ProviderRequestScreenState extends State<ProviderRequestScreen> {
             const SizedBox(height: 12),
             const Text('Seleccionar archivos', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text('PDF, DOC o DOCX', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            Text('PDF', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
           ],
         ),
       ),
