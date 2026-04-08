@@ -270,10 +270,8 @@ class _HomeClientScreenState extends State<HomeClientScreen>
     final gradient = CatalogVisuals.categoryGradient(categoria.nombre);
     final icon = CatalogVisuals.categoryIcon(categoria.nombre);
     final color = CatalogVisuals.categoryColor(categoria.nombre);
-    final subtitle = CatalogVisuals.categorySubtitle(
-      categoria.nombre,
-      fallback: categoria.descripcion ?? '',
-    );
+    final descripcion = categoria.descripcion?.trim();
+    final hasDescripcion = descripcion != null && descripcion.isNotEmpty;
 
     return GestureDetector(
       onTap: () {
@@ -322,14 +320,18 @@ class _HomeClientScreenState extends State<HomeClientScreen>
                     .titleMedium
                     ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontFamily: 'Roboto',
-                    ),
-              ),
+              if (hasDescripcion) ...[
+                const SizedBox(height: 4),
+                Text(
+                  descripcion,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontFamily: 'Roboto',
+                      ),
+                ),
+              ],
             ],
           ),
         ),
