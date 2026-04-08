@@ -76,8 +76,6 @@ class BookingDetailSheet extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildDetailRow('Categoría', booking.serviceType),
-                const SizedBox(height: 16),
                 _buildDetailRow('Nombre del servicio', booking.serviceName),
                 const SizedBox(height: 16),
                 _buildDetailRow(
