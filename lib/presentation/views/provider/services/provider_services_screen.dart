@@ -52,7 +52,7 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
       });
     }
 
-    _notifier.loadServiciosDelProveedor(0);
+    _notifier.retryServiciosDelProveedor(0);
   }
 
   List<ServicioProveedor> get _filteredServices {
@@ -152,6 +152,7 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
       barrierDismissible: false,
       builder: (ctx) {
         bool isLoading = false;
+        bool newEstado = s.estado;
         String? errorMsg = _validatePrecio(priceCtrl.text);
 
         return StatefulBuilder(
@@ -172,7 +173,7 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
                 s.id,
                 tipoServicioId: s.tipoServicioId,
                 precioBase: newPrice,
-                estado: s.estado,
+                estado: newEstado,
                 descripcion: s.descripcion,
               );
               if (!ctx.mounted) return;
@@ -180,7 +181,7 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
                 Navigator.pop(ctx);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text('Precio actualizado correctamente'),
+                    content: Text('Servicio actualizado correctamente'),
                     backgroundColor: successGreen,
                     behavior: SnackBarBehavior.floating,
                   ));
@@ -204,10 +205,41 @@ class _ProviderServicesScreenState extends State<ProviderServicesScreen> {
                     _buildInfoItem('Nombre', s.nombreMostrado),
                     if (s.descripcion != null && s.descripcion!.isNotEmpty)
                       _buildInfoItem('Descripción', s.descripcion!),
-                    _buildInfoItem('Estado', s.estado ? 'Activo' : 'Inactivo'),
                     _buildInfoItem('Duración estimada', '${s.duracionEstimadaMin} min'),
                     if (s.ratingMedia > 0)
                       _buildInfoItem('Rating', '${s.ratingMedia.toStringAsFixed(1)} / 5'),
+                    const Divider(height: 28),
+                    // Estado toggle
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Estado del servicio',
+                              style: TextStyle(fontWeight: FontWeight.w600, color: textGray, fontSize: 14),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              newEstado ? 'Activo' : 'Inactivo',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: newEstado ? successGreen : errorRed,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Switch(
+                          value: newEstado,
+                          onChanged: isLoading ? null : (v) => setDialogState(() => newEstado = v),
+                          activeColor: successGreen,
+                          inactiveThumbColor: errorRed,
+                          inactiveTrackColor: errorRed.withValues(alpha: 0.3),
+                        ),
+                      ],
+                    ),
                     const Divider(height: 28),
                     const Text(
                       'Precio base',
