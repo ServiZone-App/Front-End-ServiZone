@@ -70,6 +70,9 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
               Navigator.pop(ctx);
               Navigator.pushNamed(context, AppRoutes.login);
             },
+            style: ElevatedButton.styleFrom(
+            minimumSize: const Size(150, 48),
+                ),
             child: const Text('Iniciar Sesión'),
           ),
         ],
@@ -192,6 +195,9 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
                 onPressed: () {
                   Navigator.pushNamed(context, AppRoutes.login); // Navegación directa
                 },
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(150, 48),
+                ),
                 child: const Text('Iniciar Sesión'),
               ),
             ],
@@ -276,30 +282,6 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: const [BoxShadow(color: cardShadow, blurRadius: 8)],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40, height: 40,
-                            decoration: BoxDecoration(
-                              color: primaryBlue.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.add_location_alt_rounded, color: primaryBlue),
-                          ),
-                          const SizedBox(width: 16),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Agregar dirección', style: TextStyle(fontWeight: FontWeight.w600, color: darkGray)),
-                                SizedBox(height: 2),
-                                Text('Inicia sesión para agregar', style: TextStyle(color: textGray, fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.arrow_forward_ios_rounded, color: textGray, size: 16),
-                        ],
                       ),
                     ),
                   ),
@@ -462,7 +444,10 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
     return Scaffold(
       backgroundColor: lightGray,
       appBar: AppBar(
-        title: const Text("Mis Reservas"),
+        title: const Text(
+  "Mis Reservas",
+  style: TextStyle(color: Colors.white), // el color que quieras
+),
         backgroundColor: primaryBlue,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -487,6 +472,9 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
               onPressed: () {
                 Navigator.pushNamed(context, AppRoutes.login); // Navegación directa
               },
+                              style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(150, 48),
+                ),
               child: const Text("Iniciar Sesión"),
             ),
           ],
@@ -513,6 +501,9 @@ class _GuestHomeScreenState extends State<GuestHomeScreen>
               onPressed: () {
                 Navigator.pushNamed(context, AppRoutes.login); // Navegación directa
               },
+                              style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(150, 48),
+                ),
               child: const Text('Iniciar Sesión'),
             ),
           ],
