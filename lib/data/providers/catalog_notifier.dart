@@ -881,6 +881,20 @@ class CatalogNotifier extends ChangeNotifier {
   }
 
   // ════════════════════════════════════════════════════════════
+  // SESSION MANAGEMENT
+  // ════════════════════════════════════════════════════════════
+
+  /// Limpia los datos del proveedor autenticado de la memoria.
+  /// Debe llamarse al cerrar sesión para evitar que los datos persistan
+  /// entre sesiones de diferentes proveedores.
+  void clearProviderSession() {
+    serviciosProveedor = const [];
+    serviciosProveedorState = CatalogLoadState.idle;
+    serviciosProveedorError = '';
+    _safeNotify();
+  }
+
+  // ════════════════════════════════════════════════════════════
   // LIFECYCLE
   // ════════════════════════════════════════════════════════════
 
