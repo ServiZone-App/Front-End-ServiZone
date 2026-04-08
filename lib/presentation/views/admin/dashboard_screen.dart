@@ -7,7 +7,6 @@ import 'users/users_management_screen.dart';
 import 'providers/providers_management_screen.dart';
 import 'providers/provider_requests_screen.dart';
 
-import 'reports/reports_dashboard_screen.dart';
 import 'support/support_center_screen.dart';
 import 'settings/admin_settings_screen.dart';
 import 'category_management_screen.dart';
@@ -36,7 +35,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     _MenuItem('Solicitudes Proveedores', Icons.person_add_rounded, purple),
     _MenuItem('Gestión Proveedores', Icons.business_rounded, Color(0xFFE65100)),
     _MenuItem('Catálogo y Servicios', Icons.category_rounded, primaryBlue),
-    _MenuItem('Reportes', Icons.analytics_rounded, Color(0xFFC2185B)),
     _MenuItem('Logs de Auditoría', Icons.security_rounded, Colors.blueGrey),
     _MenuItem('Soporte', Icons.support_agent_rounded, Color(0xFFD32F2F)),
     _MenuItem('Configuración', Icons.settings_rounded, Color(0xFF455A64)),
@@ -47,7 +45,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     const ProviderRequestsScreen(),
     const ProvidersManagementScreen(),
     const CategoryManagementScreen(),
-    const ReportsDashboardScreen(),
     const AuditLogsScreen(),
     const SupportCenterScreen(),
     const AdminSettingsScreen(),
