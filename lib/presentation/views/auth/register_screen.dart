@@ -184,6 +184,9 @@ class _RegisterScreenState extends State<RegisterScreen>
         if (isEmail && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
           return 'Correo inválido';
         }
+        if (isPassword && !isConfirm && !value.startsWith('3')) {
+          return 'La contraseña debe comenzar con el número 3';
+        }
         if (isConfirm && value != _pass.text) return 'Las contraseñas no coinciden';
         return null;
       },
