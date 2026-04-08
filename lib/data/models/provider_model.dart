@@ -11,6 +11,7 @@ class ProviderModel {
   String estado;
   bool isVerified;
   final DateTime joinDate;
+  final int? anosExperiencia;
 
   ProviderModel({
     required this.id,
@@ -25,6 +26,7 @@ class ProviderModel {
     this.estado = 'activo',
     required this.isVerified,
     DateTime? joinDate,
+    this.anosExperiencia,
   }) : joinDate = joinDate ?? DateTime.now();
 
   factory ProviderModel.fromJson(Map<String, dynamic> json) {
@@ -66,12 +68,13 @@ class ProviderModel {
       phone: json['telefono'] ?? json['Telefono'] ?? '',
       category: json['categoria'] ?? json['Categoria'] ?? 'Sin categoría',
       address: json['direccion'] ?? json['Direccion'] ?? '',
-      rating: (json['calificacion'] ?? json['Calificacion'] ?? 0.0).toDouble(),
+      rating: (json['ratingPromedio'] ?? json['RatingPromedio'] ?? json['calificacion'] ?? json['Calificacion'] ?? 0.0).toDouble(),
       completedServices: json['serviciosCompletados'] ?? json['ServiciosCompletados'] ?? 0,
       isActive: estado == 'activo',
       estado: estado,
       isVerified: json['esVerificado'] ?? json['EsVerificado'] ?? true,
       joinDate: joinDate,
+      anosExperiencia: json['anosExperiencia'] ?? json['AnosExperiencia'] ?? json['años_experiencia'],
     );
   }
 }
