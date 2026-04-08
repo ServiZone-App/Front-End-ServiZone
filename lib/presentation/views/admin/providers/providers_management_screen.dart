@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
 import 'package:servizone_app/core/locator.dart';
 import 'package:servizone_app/data/models/provider_model.dart';
@@ -96,6 +97,13 @@ class _ProvidersManagementScreenState extends State<ProvidersManagementScreen> {
   }
 
   Future<void> _handleBlock(ProviderModel provider) async {
+    final confirmed = await _showConfirmationDialog(
+      title: 'Bloquear cuenta',
+      message: '¿Estás seguro de que deseas bloquear la cuenta de ${provider.name}? El proveedor no podrá acceder a la plataforma.',
+      confirmLabel: 'Bloquear',
+      confirmColor: errorRed,
+    );
+    if (confirmed != true) return;
     setState(() => _isProcessing = true);
     try {
       final id = int.tryParse(provider.id) ?? 0;
@@ -143,7 +151,45 @@ class _ProvidersManagementScreenState extends State<ProvidersManagementScreen> {
     }
   }
 
+  Future<bool?> _showConfirmationDialog({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    required Color confirmColor,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: confirmColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleUnblock(ProviderModel provider) async {
+    final confirmed = await _showConfirmationDialog(
+      title: 'Desbloquear cuenta',
+      message: '¿Estás seguro de que deseas desbloquear la cuenta de ${provider.name}? El proveedor recuperará el acceso a la plataforma.',
+      confirmLabel: 'Desbloquear',
+      confirmColor: successGreen,
+    );
+    if (confirmed != true) return;
     setState(() => _isProcessing = true);
     try {
       final id = int.tryParse(provider.id) ?? 0;
@@ -354,14 +400,6 @@ class _ProvidersManagementScreenState extends State<ProvidersManagementScreen> {
                           color: isDark ? Colors.white : darkGray
                         ),
                       ),
-                      Text(
-                        provider.category, 
-                        style: const TextStyle(
-                          fontSize: 13, 
-                          color: primaryBlue, 
-                          fontWeight: FontWeight.w600
-                        )
-                      ),
                     ],
                   ),
                 ),
@@ -369,13 +407,7 @@ class _ProvidersManagementScreenState extends State<ProvidersManagementScreen> {
               ],
             ),
             const Divider(height: 32),
-            Row(
-              children: [
-                Expanded(child: _buildInfoItem(Icons.email_outlined, provider.email)),
-                const SizedBox(width: 12),
-                _buildRating(provider.rating),
-              ],
-            ),
+            _buildInfoItem(Icons.email_outlined, provider.email),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -384,17 +416,20 @@ class _ProvidersManagementScreenState extends State<ProvidersManagementScreen> {
                       ? AdminActionCard(
                           label: 'Bloquear Cuenta',
                           onTap: () => _handleBlock(provider),
+                          color: errorRed,
                         )
                       : AdminActionCard(
                           label: 'Desbloquear Cuenta',
                           onTap: () => _handleUnblock(provider),
+                          color: successGreen,
                         ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: AdminActionCard(
                     label: 'Ver Perfil',
-                    isDisabled: true,
+                    color: primaryBlue,
+                    onTap: () => _showProviderProfileModal(provider),
                   ),
                 ),
               ],
@@ -447,21 +482,133 @@ class _ProvidersManagementScreenState extends State<ProvidersManagementScreen> {
     );
   }
 
-  Widget _buildRating(double rating) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Row(
-      children: [
-        const Icon(Icons.star_rounded, size: 16, color: Colors.orange),
-        const SizedBox(width: 4),
-        Text(
-          rating.toStringAsFixed(1),
-          style: TextStyle(
-            fontSize: 13, 
-            fontWeight: FontWeight.bold, 
-            color: isDark ? Colors.white : darkGray
+  Future<void> _showProviderProfileModal(ProviderModel provider) async {
+    String? descripcionPerfil;
+    try {
+      final result = await _authService.getSolicitudesProveedor();
+      if (result['success'] == true) {
+        final List<dynamic> data = result['data'] ?? [];
+        for (final item in data) {
+          final uid = (item['usuarioId'] ?? item['UsuarioId'])?.toString();
+          if (uid == provider.id) {
+            final desc = (item['descripcionPerfil'] ?? item['DescripcionPerfil'])?.toString();
+            if (desc != null && desc.isNotEmpty) {
+              descripcionPerfil = desc;
+            }
+            break;
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'Perfil del Proveedor',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkGray),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: textGray),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: primaryBlue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Center(
+                    child: Text(
+                      provider.name.isNotEmpty ? provider.name[0].toUpperCase() : 'P',
+                      style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: primaryBlue),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  provider.name,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkGray),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                AdminDataBadge.status(provider.estado),
+                const SizedBox(height: 20),
+                const Divider(),
+                const SizedBox(height: 12),
+                _buildProfileRow(Icons.email_outlined, 'Correo', provider.email),
+                if (provider.phone.isNotEmpty)
+                  _buildProfileRow(Icons.phone_outlined, 'Teléfono', provider.phone),
+                if (descripcionPerfil != null && descripcionPerfil.isNotEmpty)
+                  _buildProfileRow(Icons.description_outlined, 'Especialidad', descripcionPerfil),
+                if (provider.address.isNotEmpty)
+                  _buildProfileRow(Icons.location_on_outlined, 'Dirección', provider.address),
+                if (provider.anosExperiencia != null && provider.anosExperiencia! > 0)
+                  _buildProfileRow(Icons.work_outline_rounded, 'Años de experiencia', '${provider.anosExperiencia} años'),
+                if (provider.completedServices > 0)
+                  _buildProfileRow(Icons.check_circle_outline_rounded, 'Servicios completados', '${provider.completedServices}'),
+                _buildProfileRow(
+                  Icons.calendar_today_outlined,
+                  'Miembro desde',
+                  DateFormat('dd/MM/yyyy').format(provider.joinDate),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryBlue,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('CERRAR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildProfileRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: textGray),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 12, color: textGray)),
+                const SizedBox(height: 2),
+                Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: darkGray)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
