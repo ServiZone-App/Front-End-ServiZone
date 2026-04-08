@@ -86,6 +86,14 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
             _showNotification('El nombre es obligatorio', isError: true);
             return;
           }
+          final nombreNorm = nameCtrl.text.trim().toLowerCase();
+          final duplicado = _notifier.categorias.any(
+            (c) => c.nombre.trim().toLowerCase() == nombreNorm,
+          );
+          if (duplicado) {
+            _showNotification('Ya existe una categoría con ese nombre', isError: true);
+            return;
+          }
           Navigator.pop(ctx);
           final result = await _notifier.createCategoria(
             nombre: nameCtrl.text.trim(),
@@ -191,11 +199,6 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
         builder: (ctx, setS) => _buildCrudDialog(
           title: 'Crear Subcategoría',
           children: [
-            _buildField(nameCtrl, 'Nombre *', Icons.list_rounded),
-            const SizedBox(height: 12),
-            _buildField(descCtrl, 'Descripción', Icons.description_rounded,
-                maxLines: 3),
-            const SizedBox(height: 12),
             const Text('Categoría padre *',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             const SizedBox(height: 6),
@@ -203,10 +206,32 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
               selected: selectedCat,
               onChanged: (v) => setS(() => selectedCat = v),
             ),
+            const SizedBox(height: 12),
+            _buildField(nameCtrl, 'Nombre *', Icons.list_rounded,
+                enabled: selectedCat != null),
+            const SizedBox(height: 12),
+            _buildField(descCtrl, 'Descripción', Icons.description_rounded,
+                maxLines: 3, enabled: selectedCat != null),
           ],
           onConfirm: () async {
-            if (nameCtrl.text.trim().isEmpty || selectedCat == null) {
-              _showNotification('Nombre y categoría son obligatorios',
+            if (selectedCat == null) {
+              _showNotification('Debes seleccionar la categoría padre',
+                  isError: true);
+              return;
+            }
+            if (nameCtrl.text.trim().isEmpty) {
+              _showNotification('El nombre es obligatorio', isError: true);
+              return;
+            }
+            final nombreNorm = nameCtrl.text.trim().toLowerCase();
+            final duplicado = _notifier.allSubcategorias.any(
+              (s) =>
+                  s.categoriaId == selectedCat!.id &&
+                  s.nombre.trim().toLowerCase() == nombreNorm,
+            );
+            if (duplicado) {
+              _showNotification(
+                  'Ya existe una subcategoría con ese nombre en esta categoría',
                   isError: true);
               return;
             }
@@ -337,11 +362,6 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
         builder: (ctx, setS) => _buildCrudDialog(
           title: 'Crear Tipo de Servicio',
           children: [
-            _buildField(nameCtrl, 'Nombre *', Icons.build_rounded),
-            const SizedBox(height: 12),
-            _buildField(descCtrl, 'Descripción', Icons.description_rounded,
-                maxLines: 3),
-            const SizedBox(height: 12),
             const Text('Subcategoría *',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             const SizedBox(height: 6),
@@ -349,10 +369,32 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
               selected: selectedSub,
               onChanged: (v) => setS(() => selectedSub = v),
             ),
+            const SizedBox(height: 12),
+            _buildField(nameCtrl, 'Nombre *', Icons.build_rounded,
+                enabled: selectedSub != null),
+            const SizedBox(height: 12),
+            _buildField(descCtrl, 'Descripción', Icons.description_rounded,
+                maxLines: 3, enabled: selectedSub != null),
           ],
           onConfirm: () async {
-            if (nameCtrl.text.trim().isEmpty || selectedSub == null) {
-              _showNotification('Nombre y subcategoría son obligatorios',
+            if (selectedSub == null) {
+              _showNotification('Debes seleccionar la subcategoría',
+                  isError: true);
+              return;
+            }
+            if (nameCtrl.text.trim().isEmpty) {
+              _showNotification('El nombre es obligatorio', isError: true);
+              return;
+            }
+            final nombreNorm = nameCtrl.text.trim().toLowerCase();
+            final duplicado = _notifier.allTipos.any(
+              (t) =>
+                  t.subcategoriaId == selectedSub!.id &&
+                  t.nombre.trim().toLowerCase() == nombreNorm,
+            );
+            if (duplicado) {
+              _showNotification(
+                  'Ya existe un tipo de servicio con ese nombre en esta subcategoría',
                   isError: true);
               return;
             }
@@ -473,16 +515,20 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen>
     String label,
     IconData icon, {
     int maxLines = 1,
+    bool enabled = true,
   }) {
     return TextField(
       controller: ctrl,
       maxLines: maxLines,
+      enabled: enabled,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: primaryBlue),
+        prefixIcon: Icon(icon, color: enabled ? primaryBlue : Colors.grey),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        filled: !enabled,
+        fillColor: !enabled ? Colors.grey.shade100 : null,
       ),
     );
   }
