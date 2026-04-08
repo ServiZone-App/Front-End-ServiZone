@@ -323,21 +323,7 @@ class _CreateServiceBottomSheetState extends State<CreateServiceBottomSheet> {
 
               const SizedBox(height: 16),
 
-              // 5. Descripción
-              const _SectionLabel('Descripción'),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: _descripcionController,
-                keyboardType: TextInputType.multiline,
-                maxLines: 4,
-                maxLength: 500,
-                decoration: _inputDeco(
-                    'Describe el servicio (opcional)', Icons.description_rounded),
-              ),
-
-              const SizedBox(height: 16),
-
-              // 6. Estado
+              // 5. Estado
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(
