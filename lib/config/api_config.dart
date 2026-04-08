@@ -1,21 +1,13 @@
-import 'package:flutter/foundation.dart';
-
 class ApiConfig {
-  static String get authBaseUrl {
-    const env = String.fromEnvironment('AUTH_BASE_URL', defaultValue: '');
-    if (env.isNotEmpty) return env;
-    return kIsWeb ? 'http://localhost:5059/api' : 'https://10.0.2.2:5059/api';
-  }
+  static String get authBaseUrl =>
+      const String.fromEnvironment('AUTH_BASE_URL',
+          defaultValue: 'https://api-auth-zofr.onrender.com/api');
 
-  static String get catalogBaseUrl {
-    const env = String.fromEnvironment('CATALOG_BASE_URL', defaultValue: '');
-    if (env.isNotEmpty) return env;
-    return kIsWeb ? 'http://localhost:5257/api' : 'https://10.0.2.2:5257/api';
-  }
+  static String get catalogBaseUrl =>
+      const String.fromEnvironment('CATALOG_BASE_URL',
+          defaultValue: 'https://api-service-88ld.onrender.com/api');
 
-  static String get bookingBaseUrl {
-    const env = String.fromEnvironment('BOOKING_BASE_URL', defaultValue: '');
-    if (env.isNotEmpty) return env;
-    return kIsWeb ? 'http://localhost:5170/api' : 'http://10.0.2.2:5170/api';
-  }
+  static String get bookingBaseUrl =>
+      const String.fromEnvironment('BOOKING_BASE_URL',
+          defaultValue: 'https://api-booking-pulm.onrender.com/api');
 }
