@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:servizone_app/core/locator.dart';
+import 'package:servizone_app/core/routes/app_routes.dart';
 import 'package:servizone_app/data/providers/auth_service.dart';
+import 'package:servizone_app/data/providers/catalog_notifier.dart';
 import 'package:servizone_app/core/constants/app_constants.dart';
 
 class ProviderEditProfileScreen extends StatefulWidget {
@@ -77,6 +79,18 @@ class _ProviderEditProfileScreenState extends State<ProviderEditProfileScreen> {
     return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
   }
 
+  Future<void> _performLogout() async {
+    locator<CatalogNotifier>().clearProviderSession();
+    await locator<AuthService>().logout();
+    if (mounted) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.login,
+        (route) => false,
+      );
+    }
+  }
+
   Future<void> _updateData() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
@@ -90,7 +104,9 @@ class _ProviderEditProfileScreenState extends State<ProviderEditProfileScreen> {
 
     if (mounted) {
       setState(() => _isLoading = false);
-      if (result['success']) {
+      // Tratar requiresRelogin como éxito: el PATCH funcionó pero el backend
+      // invalidó la sesión, así que mostramos el modal de éxito y cerramos sesión.
+      if (result['success'] == true || result['requiresRelogin'] == true) {
         setState(() {
           _isEditing = false;
           _userEmail = _emailController.text.trim();
@@ -99,23 +115,10 @@ class _ProviderEditProfileScreenState extends State<ProviderEditProfileScreen> {
           _userExperience = _experienceController.text.trim();
           _showSuccess = true;
         });
-
-        // Recargar datos para consistencia
-        _loadUserData();
-
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) setState(() => _showSuccess = false);
-        });
       } else {
-        // Ignorar 401 si ya se maneja globalmente
-        if (result['statusCode'] == 401) return;
-
         setState(() {
           _showError = true;
           _errorMessage = result['message'] ?? 'Error al actualizar la información';
-        });
-        Future.delayed(const Duration(seconds: 3), () {
-          if (mounted) setState(() => _showError = false);
         });
       }
     }
@@ -334,13 +337,17 @@ class _ProviderEditProfileScreenState extends State<ProviderEditProfileScreen> {
             _buildModal(
               icon: Icons.check_circle,
               color: Colors.green,
-              message: 'Datos actualizados',
+              message: 'Datos actualizados correctamente, inicie sesion nuevamente.',
+              buttonLabel: 'Aceptar',
+              onClose: _performLogout,
             ),
           if (_showError)
             _buildModal(
               icon: Icons.cancel,
               color: Colors.red,
               message: _errorMessage,
+              buttonLabel: 'Cerrar',
+              onClose: () => setState(() => _showError = false),
             ),
         ],
       ),
@@ -349,31 +356,51 @@ class _ProviderEditProfileScreenState extends State<ProviderEditProfileScreen> {
 
 
 
-  Widget _buildModal({required IconData icon, required Color color, required String message}) {
+  Widget _buildModal({
+    required IconData icon,
+    required Color color,
+    required String message,
+    required String buttonLabel,
+    required VoidCallback onClose,
+  }) {
     return Container(
       color: Colors.black.withValues(alpha: 0.5),
       child: Center(
         child: Container(
-          width: 220,
-          height: 220,
+          width: 260,
+          padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 70, color: color),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               Text(
                 message,
                 style: const TextStyle(
                   fontFamily: 'Poppins',
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.w500,
                   color: darkGray,
                 ),
                 textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: onClose,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(buttonLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
               ),
             ],
           ),
