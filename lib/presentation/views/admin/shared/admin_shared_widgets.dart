@@ -334,17 +334,20 @@ class AdminActionCard extends StatelessWidget {
   final String label;
   final bool isDisabled;
   final VoidCallback? onTap;
+  final Color? color;
 
   const AdminActionCard({
     super.key,
     required this.label,
     this.isDisabled = false,
     this.onTap,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasColor = color != null && !isDisabled;
     return Opacity(
       opacity: isDisabled ? 0.5 : 1.0,
       child: InkWell(
@@ -366,11 +369,17 @@ class AdminActionCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: isDisabled 
-              ? (isDark ? const Color(0xFF2C2C2C) : backgroundGray) 
-              : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
+            color: isDisabled
+                ? (isDark ? const Color(0xFF2C2C2C) : backgroundGray)
+                : hasColor
+                    ? color!.withValues(alpha: 0.08)
+                    : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+            border: Border.all(
+              color: hasColor
+                  ? color!.withValues(alpha: 0.4)
+                  : (isDark ? Colors.white10 : Colors.grey.shade200),
+            ),
           ),
           child: Row(
             children: [
@@ -378,8 +387,8 @@ class AdminActionCard extends StatelessWidget {
                 child: Text(
                   label,
                   style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: isDark ? Colors.white : darkGray,
+                    fontWeight: FontWeight.w600,
+                    color: hasColor ? color! : (isDark ? Colors.white : darkGray),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -388,7 +397,8 @@ class AdminActionCard extends StatelessWidget {
               if (isDisabled)
                 const Icon(Icons.lock_clock_rounded, size: 16, color: textGray)
               else
-                Icon(Icons.arrow_forward_ios_rounded, size: 14, color: isDark ? Colors.white54 : textGray),
+                Icon(Icons.arrow_forward_ios_rounded, size: 14,
+                    color: hasColor ? color! : (isDark ? Colors.white54 : textGray)),
             ],
           ),
         ),
