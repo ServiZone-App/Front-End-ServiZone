@@ -259,18 +259,6 @@ class _ProviderRequestsScreenState extends State<ProviderRequestsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(request.usuarioCorreo, style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : textGray)),
-              const SizedBox(height: 2),
-              Row(
-                children: [
-                  Icon(Icons.phone_rounded, size: 12, color: isDark ? Colors.white38 : Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                    request.usuarioTelefono,
-                    style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : textGray),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
               Row(
                 children: [
                    Icon(Icons.access_time_rounded, size: 12, color: isDark ? Colors.white38 : Colors.grey),
@@ -291,8 +279,6 @@ class _ProviderRequestsScreenState extends State<ProviderRequestsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Divider(height: 32, color: isDark ? Colors.white10 : null),
-                  _buildDetailRow(Icons.phone_iphone_rounded, 'Teléfono', request.usuarioTelefono),
-                  const SizedBox(height: 12),
                   _buildDetailRow(Icons.history_edu_rounded, 'Experiencia', '${request.anosExperiencia} años'),
                   const SizedBox(height: 20),
                   const Text(
