@@ -169,70 +169,79 @@ class _ProviderBookingsScreenState extends State<ProviderBookingsScreen> {
           Row(
             children: [
               Expanded(
-                child: ElevatedButton(
-                  onPressed: () => _shareToWhatsApp(booking),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF25D366),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () => _shareToWhatsApp(booking),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('WhatsApp',
+                        style: TextStyle(color: Colors.white)),
                   ),
-                  child: const Text('WhatsApp',
-                      style: TextStyle(color: Colors.white)),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: OutlinedButton(
-                  onPressed: () async {
-                    final solicitudId = int.parse(booking.id);
-                    final res = await _vm.cancelarReserva(solicitudId);
-                    if (!mounted) return;
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                            res.success ? 'Reserva cancelada' : res.message),
-                        backgroundColor:
-                            res.success ? errorRed : Colors.grey,
-                      ),
-                    );
-                    if (res.success) _load();
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: errorRed,
-                    side: const BorderSide(color: errorRed),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final solicitudId = int.parse(booking.id);
+                      final res = await _vm.cancelarReserva(solicitudId);
+                      if (!mounted) return;
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              res.success ? 'Reserva cancelada' : res.message),
+                          backgroundColor:
+                              res.success ? errorRed : Colors.grey,
+                        ),
+                      );
+                      if (res.success) _load();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: errorRed,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Cancelar',
+                        style: TextStyle(color: Colors.white)),
                   ),
-                  child: const Text('Cancelar'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final solicitudId = int.parse(booking.id);
-                    final res = await _vm.completarReserva(solicitudId);
-                    if (!mounted) return;
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(res.success
-                            ? 'Servicio completado correctamente'
-                            : res.message),
-                        backgroundColor:
-                            res.success ? successGreen : errorRed,
-                      ),
-                    );
-                    if (res.success) _load();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: successGreen,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final solicitudId = int.parse(booking.id);
+                      final res = await _vm.completarReserva(solicitudId);
+                      if (!mounted) return;
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(res.success
+                              ? 'Servicio completado correctamente'
+                              : res.message),
+                          backgroundColor:
+                              res.success ? successGreen : errorRed,
+                        ),
+                      );
+                      if (res.success) _load();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: successGreen,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Completar',
+                        style: TextStyle(color: Colors.white)),
                   ),
-                  child: const Text('Completar',
-                      style: TextStyle(color: Colors.white)),
                 ),
               ),
             ],
